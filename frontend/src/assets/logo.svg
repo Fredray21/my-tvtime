@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 160">
+  <g transform="translate(10, 10) scale(0.25)">
+    <path d="M 160 100 L 256 160 L 352 100" stroke="#a855f7" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    <rect x="64" y="160" width="384" height="280" rx="60" fill="#a855f7" />
+    <path d="M 220 240 L 320 300 L 220 360 Z" fill="#ffffff" />
+  </g>
+  
+  <text x="160" y="105" font-family="system-ui, -apple-system, sans-serif" font-size="80" font-weight="900" letter-spacing="-2">
+    <tspan fill="#ffffff">TV</tspan><tspan fill="#a855f7">Time</tspan>
+  </text>
+</svg>

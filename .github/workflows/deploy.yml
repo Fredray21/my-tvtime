@@ -1,0 +1,120 @@
+name: 🚀 Build and Deploy Stack
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  # --- JOB 1: BUILD & PACKAGE IMAGES ---
+  build:
+    name: 🏗️ Build & Package Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      owner: ${{ steps.convert_repository.outputs.owner }}
+      repo: ${{ steps.convert_repository.outputs.repo }}
+      
+    steps:
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔤 Convert repository owners and names to lowercase
+        id: convert_repository
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
+          echo "owner=${OWNER}" >> $GITHUB_OUTPUT
+          echo "repo=${REPO}" >> $GITHUB_OUTPUT
+
+      - name: 🛠️ Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Log in to the GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📦 Build and Push API Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend  # <-- Modifié si ton Dockerfile est dans le dossier backend
+          file: ./backend/Dockerfile.api
+          push: true
+          tags: ghcr.io/${{ steps.convert_repository.outputs.owner }}/${{ steps.convert_repository.outputs.repo }}-api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 📦 Build and Push Frontend PWA Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.frontend
+          push: true
+          tags: ghcr.io/${{ steps.convert_repository.outputs.owner }}/${{ steps.convert_repository.outputs.repo }}-web:${{ github.sha }}
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_PROD_API_URL }}
+            VITE_CLERK_PUBLISHABLE_KEY=${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # --- JOB 2: DEPLOY TO VPS ---
+  deploy:
+    name: 🌐 Deploy Stack to VPS
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: 🌐 SSH into VPS and deploy containers
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          script: |
+            # 0. Connexion à GHCR depuis le VPS (Requis si repo privé)
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            docker network create my_tvtime_network || true
+
+            # 1. Pull the newly created images
+            docker pull ghcr.io/${{ needs.build.outputs.owner }}/${{ needs.build.outputs.repo }}-api:${{ github.sha }}
+            docker pull ghcr.io/${{ needs.build.outputs.owner }}/${{ needs.build.outputs.repo }}-web:${{ github.sha }}
+            
+            # 2. Stop and remove old containers
+            docker stop my-tvtime-api || true
+            docker rm my-tvtime-api || true
+            docker stop my-tvtime-web || true
+            docker rm my-tvtime-web || true
+            
+            # 3. Launch the API container (Internal: 8080 -> Public Port: 5016)
+            docker run -d \
+              --name my-tvtime-api \
+              --network my_tvtime_network \
+              -p 5016:8080 \
+              -e DB_HOST=my_tvtime_db \
+              -e DB_USER="${{ secrets.DB_PROD_USER }}" \
+              -e DB_PASSWORD="${{ secrets.DB_PROD_PASSWORD }}" \
+              -e DB_NAME=mytvtime_db \
+              -e API_PORT=8080 \
+              -e TMDB_API_KEY="${{ secrets.TMDB_API_KEY }}" \
+              -e CLERK_JWKS_URL="${{ secrets.CLERK_JWKS_URL }}" \
+              -e FRONTEND_URL="${{ secrets.FRONTEND_PROD_URL }}" \
+              -e GIN_MODE=release \
+              --restart unless-stopped \
+              ghcr.io/${{ needs.build.outputs.owner }}/${{ needs.build.outputs.repo }}-api:${{ github.sha }}
+              
+            # 4. Launch the Frontend PWA container (Internal Nginx: 80 -> Public Port: 5017)
+            docker run -d \
+              --name my-tvtime-web \
+              --network my_tvtime_network \
+              -p 5017:80 \
+              --restart unless-stopped \
+              ghcr.io/${{ needs.build.outputs.owner }}/${{ needs.build.outputs.repo }}-web:${{ github.sha }}
+              
+            # 5. Clean up old dangling images to preserve space
+            docker image prune -f

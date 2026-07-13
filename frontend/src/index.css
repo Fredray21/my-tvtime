@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+body {
+    background-color: #09090b; /* zinc-950 */
+    color: #f4f4f5;
+}
+
+.pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+}

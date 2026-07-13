@@ -1,0 +1,35 @@
+# --- Stage 1: Build the production static assets ---
+FROM node:24-alpine AS builder
+
+WORKDIR /app
+
+# Déclaration des arguments de build pour Vite
+ARG VITE_API_URL
+ARG VITE_CLERK_PUBLISHABLE_KEY
+
+# On les transforme en ENV pour que la commande build les attrape
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
+
+# Copy package tracking files first to leverage Docker caching layers
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Copy the rest of the application files
+COPY . .
+
+# Build the production build (generates files in the /app/dist folder)
+RUN npm run build
+
+# --- Stage 2: Serve the files using an ultra-lightweight Nginx container ---
+FROM nginx:1.25-alpine
+
+# Remove default static files from Nginx
+RUN rm -rf /usr/share/nginx/html/*
+
+# Copy the built production assets from the builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

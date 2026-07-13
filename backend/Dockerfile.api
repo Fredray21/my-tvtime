@@ -1,0 +1,30 @@
+# --- Stage 1: Build the Go binary ---
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+
+# Copy dependency tracking files first
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the rest of the source code
+COPY . .
+
+# Compile the API binary
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o my-tvtime-api ./cmd/api/main.go
+
+# --- Stage 2: Run the binary in a lightweight image ---
+FROM alpine:3.18
+
+WORKDIR /app
+
+# Install ca-certificates for external API calls (TMDB, Clerk)
+RUN apk --no-cache add ca-certificates
+
+# Copy the pre-compiled binary
+COPY --from=builder /app/my-tvtime-api .
+
+# Expose the internal port (8080)
+EXPOSE 8080
+
+CMD ["./my-tvtime-api"]

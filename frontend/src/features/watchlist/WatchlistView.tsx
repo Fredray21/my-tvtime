@@ -71,7 +71,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
             {/* Header dynamique avec Boutons de Vue */}
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold tracking-tight">
-                    {mediaType === 'movie' ? 'Mes Films' : 'Mes Séries'}
+                    {mediaType === 'movie' ? 'Mes Films à voir' : 'Mes Séries à voir'}
                 </h1>
 
                 {/* Le Toggle Card / List */}

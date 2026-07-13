@@ -22,15 +22,3 @@ CREATE TABLE IF NOT EXISTS user_movies (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_movies_user_id ON user_movies(user_id);
-
-
-
--- CREATE TABLE IF NOT EXISTS tmdb_cache (
---     cache_key TEXT PRIMARY KEY,
---     data JSONB NOT NULL,
---     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
---     expires_at TIMESTAMP
--- );
-
--- CREATE INDEX IF NOT EXISTS idx_tmdb_cache_key ON tmdb_cache(cache_key);
--- CREATE INDEX IF NOT EXISTS idx_tmdb_cache_expires ON tmdb_cache(expires_at);

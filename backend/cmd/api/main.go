@@ -9,6 +9,7 @@ import (
 	"github.com/Fredray21/my-tvtime/internal/movie"
 	"github.com/Fredray21/my-tvtime/internal/search"
 	"github.com/Fredray21/my-tvtime/internal/tmdb"
+	"github.com/Fredray21/my-tvtime/internal/tv"
 	"github.com/Fredray21/my-tvtime/internal/user"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -36,14 +37,16 @@ func main() {
 
 	userRepo := user.NewRepository(db)
 	movieRepo := movie.NewRepository(db)
+	tvRepo := tv.NewRepository(db)
 
 	movieService := movie.NewService(movieRepo, tmdbClient)
+	tvService := tv.NewService(tvRepo, tmdbClient)
+	userService := user.NewService(userRepo, tmdbClient, movieService, tvService, tvRepo)
+	searchService := search.NewService(tmdbClient, movieService, tvService)
+
 	movieHandler := movie.NewHandler(movieService)
-
-	userService := user.NewService(userRepo, tmdbClient, movieService)
+	tvHandler := tv.NewHandler(tvService)
 	userHandler := user.NewHandler(userService)
-
-	searchService := search.NewService(tmdbClient, movieService)
 	searchHandler := search.NewHandler(searchService)
 
 	r := gin.Default()
@@ -76,6 +79,24 @@ func main() {
 			movieRoutes.GET("/:id/similar", movieHandler.HandleGetSimilarMovies)
 		}
 
+		tvRoutes := api.Group("/tvs")
+		{
+			// Global Série
+			tvRoutes.POST("/status", tvHandler.HandlerUpdateStatus) // Ajouter à la watchlist / Favori
+			tvRoutes.DELETE("/:id", tvHandler.HandlerRemoveSeries)  // Tout supprimer
+			tvRoutes.GET("/watchlist", tvHandler.HandlerGetWatchlist)
+			tvRoutes.GET("/favorites", tvHandler.HandlerGetFavorites)
+			tvRoutes.GET("/:id", tvHandler.HandlerGetDetails)
+			tvRoutes.GET("/:id/similar", tvHandler.HandlerGetSimilarSeries)
+
+			// Épisodes et Saisons
+			tvRoutes.POST("/watch", tvHandler.HandlerWatchEpisode)
+			tvRoutes.DELETE("/:id/season/:season/episode/:episode", tvHandler.HandlerRemoveEpisode)
+			tvRoutes.GET("/:id/season/:season", tvHandler.HandlerGetSeasonDetails)
+			tvRoutes.PUT("/:id/season/:season/episode/:episode/decrement", tvHandler.HandlerDecrementEpisode)
+			tvRoutes.POST("/watchAll", tvHandler.HandlerWatchAllEpisodesInSeason)
+		}
+
 		// Search
 		api.GET("/search/multi", searchHandler.HandleMultiSearch)
 		api.GET("/search/:type", searchHandler.HandlePagedSearch)
@@ -83,6 +104,7 @@ func main() {
 		// User
 		api.GET("/user/stats", userHandler.HandleGetUserStats)
 		api.GET("/user/movies/latest", userHandler.HandleGetLatestMovies)
+		api.GET("/user/tvs/latest", userHandler.HandleGetLatestTV)
 
 	}
 

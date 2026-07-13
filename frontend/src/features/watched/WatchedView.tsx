@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '../../context/ApiContext';
 import { MediaCard } from '../../components/MediaCard';
+import { useLocalStorage } from '../../utils/useLocalStorage';
 
 interface WatchedViewProps {
     mediaType: 'movie' | 'tv';
@@ -9,7 +10,8 @@ interface WatchedViewProps {
 
 export const WatchedView: React.FC<WatchedViewProps> = ({ mediaType }) => {
     const api = useApi();
-    const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+    const [viewMode, setViewMode] = useLocalStorage<'card' | 'list'>('watched_view_mode','card');
+
 
     // On récupère toute la liste (backend avec limit=0)
     const { data: movies, isLoading, isError } = useQuery({

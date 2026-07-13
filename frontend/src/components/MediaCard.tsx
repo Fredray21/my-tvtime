@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 interface MediaCardProps {
     item: any;
-    fallbackMediaType?: 'movie' | 'tv';
+    fallbackMediaType?: 'movie' | 'tv' | 'person';
     layout?: 'card' | 'list';
     onStatusChange?: (mediaId: number, newStatus: 'watchlist' | 'watched') => void;
 }
@@ -90,12 +90,13 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         </div>
     );
 
+
     return (
         <div className={cardClasses}>
             {isPerson ? <div>{content}</div> : <Link to={targetUrl}>{content}</Link>}
 
             {/* LE BOUTON : Apparaît uniquement si onStatusChange est fourni ET qu'il y a un status */}
-            {onStatusChange && !isPerson && item.status_local && (
+            {fallbackMediaType === 'movie' && onStatusChange && !isPerson && item.status_local && (
                 <div className="p-2 pt-1.5 z-10 relative">
                     <button
                         onClick={() => onStatusChange(item.id, item.status_local === 'watchlist' ? 'watched' : 'watchlist')}

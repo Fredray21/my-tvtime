@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../../context/ApiContext';
 import { MediaCard } from '../../components/MediaCard';
 import { triggerVibration } from '../../utils/haptics';
+import type { UpdateStatusDTO } from '../../api/mediaApi';
 
 export const MovieDetailsView = () => {
     const { id } = useParams<{ id: string }>();
@@ -28,7 +29,7 @@ export const MovieDetailsView = () => {
 
     // 2. Mutation pour modifier le statut (Optimistic UI)
     const mutation = useMutation({
-        mutationFn: async (variables: { newStatus: 'watchlist' | 'watched' | 'not_tracked'; isFavorite: boolean; rewatch_count: number }) => {
+        mutationFn: async (variables: { newStatus: UpdateStatusDTO['status_local']; isFavorite: boolean; rewatch_count: number }) => {
             if (variables.newStatus === 'not_tracked') {
                 return api.media.removeMedia(movieId, mediaType);
             }
@@ -97,7 +98,7 @@ export const MovieDetailsView = () => {
                         triggerVibration()
                         navigate(-1)
                     }}
-                    className="absolute top-4 left-4 bg-black/40 backdrop-blur-md p-2 rounded-full text-white hover:bg-black/60 transition"
+                    className="absolute top-4 left-4 bg-black/40 backdrop-blur-md p-2 rounded-full text-white hover:bg-black/60 transition aspect-square"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="19" y1="12" x2="5" y2="12"></line>
@@ -112,7 +113,7 @@ export const MovieDetailsView = () => {
                             triggerVibration([30, 100, 30])
                             mutation.mutate({ newStatus: movie.status_local, isFavorite: !movie.is_favorite, rewatch_count: movie.rewatch_count })
                         }}
-                        className={`absolute top-4 right-4 p-2 rounded-full text-white transition bg-black/40 hover:bg-black/60`}
+                        className={`absolute top-4 right-4 flex items-center justify-center w-10 h-10 rounded-full text-white transition bg-black/40 hover:bg-black/60 aspect-square`}
                     >
                         {movie.is_favorite ? '❤️' : '🤍'}
                     </button>

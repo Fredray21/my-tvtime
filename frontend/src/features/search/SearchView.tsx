@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { useApi } from '../../context/ApiContext';
-import { SearchCard } from '../../components/SearchCard';
 import { useDebounce } from '../../hooks/useDebounce';
 import { MediaCard } from '../../components/MediaCard';
+import { triggerVibration } from '../../utils/haptics';
+import { useLocalStorage } from '../../utils/useLocalStorage';
 
 type TabType = 'all' | 'movie' | 'tv' | 'person';
 
@@ -14,7 +15,7 @@ export const SearchView = () => {
     const activeTab = (searchParams.get('tab') as TabType) || 'all';
 
     const [localQuery, setLocalQuery] = useState(searchParams.get('q') || '');
-    const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+    const [viewMode, setViewMode] = useLocalStorage<'card' | 'list'>('search_list_view_mode','card');
 
     const debouncedQuery = useDebounce(localQuery, 500);
 
@@ -77,12 +78,14 @@ export const SearchView = () => {
 
             <div className="flex justify-between items-end border-b border-zinc-900 mb-6 gap-4 h-12">
 
-                {/* Les 4 Onglets Style Keekup */}
                 <div className="flex text-sm font-semibold overflow-x-auto scrollbar-none gap-2 flex-grow">
                     {(['all', 'movie', 'tv', 'person'] as const).map((tab) => (
                         <button
                             key={tab}
-                            onClick={() => handleTabChange(tab)}
+                            onClick={() => {
+                                triggerVibration(15);
+                                handleTabChange(tab)
+                            }}
                             className={`pb-3 px-2 capitalize border-b-2 transition-all whitespace-nowrap ${activeTab === tab
                                 ? 'border-purple-500 text-purple-500'
                                 : 'border-transparent text-zinc-500 hover:text-zinc-300'
@@ -130,7 +133,7 @@ export const SearchView = () => {
                                 <div className="flex overflow-x-auto gap-4 pb-2 scrollbar-none snap-x">
                                     {multiData.movies.map((item) => (
                                         <div key={item.id} className="w-28 flex-shrink-0 snap-start">
-                                            <MediaCard item={item} layout="card" />
+                                            <MediaCard item={item} layout="card" fallbackMediaType='movie'/>
                                         </div>
                                     ))}
                                 </div>
@@ -144,7 +147,7 @@ export const SearchView = () => {
                                 <div className="flex overflow-x-auto gap-4 pb-2 scrollbar-none snap-x">
                                     {multiData.tvShows.map((item) => (
                                         <div key={item.id} className="w-28 flex-shrink-0 snap-start">
-                                            <MediaCard item={item} layout="card" />
+                                            <MediaCard item={item} layout="card" fallbackMediaType='tv'/>
                                         </div>
                                     ))}
                                 </div>
@@ -158,7 +161,7 @@ export const SearchView = () => {
                                 <div className="flex overflow-x-auto gap-4 pb-2 scrollbar-none snap-x">
                                     {multiData.actors.map((item) => (
                                         <div key={item.id} className="w-28 flex-shrink-0 snap-start">
-                                            <SearchCard item={item} />
+                                            <MediaCard item={item} layout='card' fallbackMediaType='person'/>
                                         </div>
                                     ))}
                                 </div>
@@ -182,6 +185,7 @@ export const SearchView = () => {
                                     key={item.id}
                                     item={item}
                                     layout={viewMode}
+                                    fallbackMediaType={activeTab as 'movie' | 'tv' | 'person'}
                                 />
                             ))}
                         </div>

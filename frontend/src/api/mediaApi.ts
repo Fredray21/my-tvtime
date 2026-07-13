@@ -11,6 +11,17 @@ export interface ProductionCompany {
     logo_path: string | null;
 }
 
+export interface TMDBSeasonShort {
+    air_date: string;
+    episode_count: number;
+    id: number;
+    name: string;
+    overview: string;
+    poster_path: string | null;
+    season_number: number;
+    vote_average: number;
+}
+
 // --- 2. LE TYPE HYBRIDE (FILM & SÉRIE) ---
 export interface TMDBMediaResult {
     id: number;
@@ -28,6 +39,9 @@ export interface TMDBMediaResult {
     original_name?: string;
     first_air_date?: string;
     episode_run_time?: number[];
+    number_of_episodes?: number;
+    number_of_seasons?: number;
+    seasons?: TMDBSeasonShort[];
 
     // Communs aux deux
     poster_path: string | null;
@@ -42,9 +56,10 @@ export interface TMDBMediaResult {
 
 // --- 3. NOS TYPES LOCAUX (AVEC BDD) ---
 export interface MediaCustomResponse extends TMDBMediaResult {
-    status_local: 'watchlist' | 'watched' | 'not_tracked';
+    status_local: UpdateStatusDTO['status_local'];
     is_favorite: boolean;
     rewatch_count: number;
+    media_type?: 'movie' | 'tv';
 }
 
 export interface WatchlistPaginatedResponse {
@@ -53,20 +68,58 @@ export interface WatchlistPaginatedResponse {
     has_next_page: boolean;
 }
 
+// status_local TV : 'watchlist' | 'watching' | 'finished' | 'pending' | 'watched' | 'not_tracked'
+// status_local Movie : 'watchlist' | 'watched' | 'not_tracked'
 export interface UpdateStatusDTO {
     tmdb_id: number;
     media_type: 'movie' | 'tv';
-    status_local: 'watchlist' | 'watched' | 'not_tracked';
+    status_local: 'watchlist' | 'watching' | 'finished' | 'pending' | 'watched' | 'not_tracked';
     is_favorite: boolean;
     rewatch_count: number;
 }
 
+// --- NOUVEAUX TYPES SPECIFIQUES SÉRIES & ÉPISODES ---
+export interface TMDBEpisodeShort {
+    id: number;
+    name: string;
+    overview: string;
+    episode_number: number;
+    season_number: number;
+    runtime: number;
+    still_path: string | null;
+    air_date: string;
+    vote_average: number;
+}
+
+export interface TMDBSeasonDetail {
+    id: number;
+    name: string;
+    season_number: number;
+    overview: string;
+    air_date: string;
+    poster_path: string | null;
+    episodes: TMDBEpisodeShort[];
+}
+
+export interface EpisodeCustomResponse extends TMDBEpisodeShort {
+    is_watched: boolean;
+    rewatch_count: number;
+}
+
+export interface SeasonCustomResponse {
+    id: number;
+    name: string;
+    season_number: number;
+    overview: string;
+    air_date: string;
+    poster_path: string | null;
+    vote_average: number;
+    episodes: EpisodeCustomResponse[];
+}
 
 export const createMediaApi = (api: AxiosInstance) => ({
-    getWatchlist: async (page: number = 1, mediaType: 'movie' | 'tv' = 'movie'): Promise<WatchlistPaginatedResponse> => {
-        // Si mediaType est 'movie', ça tape '/movies/watchlist?page=...'
-        // Si mediaType est 'tv', ça tape '/tv/watchlist?page=...'
-        const response = await api.get<WatchlistPaginatedResponse>(`/${mediaType}s/watchlist?page=${page}`);
+    getWatchlist: async (page: number, mediaType: 'movie' | 'tv') => {
+        const response = await api.get(`/${mediaType}s/watchlist?page=${page}`);
         return response.data;
     },
 
@@ -93,4 +146,42 @@ export const createMediaApi = (api: AxiosInstance) => ({
         return response.data;
     },
 
+    // --- TV ---
+    // 1. Pour récupérer la liste des épisodes d'une saison spécifique
+    getSeasonDetails: async (seriesId: number, seasonNumber: number): Promise<SeasonCustomResponse> => {
+        const response = await api.get<SeasonCustomResponse>(`/tvs/${seriesId}/season/${seasonNumber}`);
+        return response.data;
+    },
+
+    // 2. Pour marquer un épisode comme vu (POST)
+    watchEpisode: async (seriesId: number, seasonNumber: number, episodeNumber: number) => {
+        return api.post(`/tvs/watch`, {
+            tmdb_id: seriesId,
+            season_number: seasonNumber,
+            episode_number: episodeNumber
+        });
+    },
+
+    // 3. Pour retirer un épisode de l'historique (DELETE)
+    removeEpisode: async (seriesId: number, seasonNumber: number, episodeNumber: number) => {
+        return api.delete(`/tvs/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}`);
+    },
+
+    // 4. Pour récupérer les recommandations de séries
+    getSimilarSeries: async (seriesId: number): Promise<MediaCustomResponse[]> => {
+        const response = await api.get<{ results: MediaCustomResponse[] }>(`/tvs/${seriesId}/similar`);
+        return response.data.results;
+    },
+
+    // 5. Pour faire -1 sur un épisode (PUT)
+    decrementEpisode: async (seriesId: number, seasonNumber: number, episodeNumber: number) => {
+        return api.put(`/tvs/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}/decrement`);
+    },
+
+    watchAllEpisodesInSeason: async (seriesId: number, seasonNumber: number) => {
+        return api.post(`/tvs/watchAll`, {
+            tmdb_id: seriesId,
+            season_number: seasonNumber
+        });
+    }
 });

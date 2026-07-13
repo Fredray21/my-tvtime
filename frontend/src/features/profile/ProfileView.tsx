@@ -3,6 +3,7 @@ import { useApi } from '../../context/ApiContext';
 import { useQueries } from '@tanstack/react-query';
 import { formatRuntime } from '../../utils/timeFormat';
 import { LatestSection } from '../../components/LatestSection';
+import { triggerVibration } from '../../utils/haptics';
 
 export const ProfileView = () => {
     const { user, isLoaded } = useUser();
@@ -160,7 +161,10 @@ export const ProfileView = () => {
 
                 {/* Bouton Déconnexion (Largeur contenue sur PC) */}
                 <button
-                    onClick={() => signOut()}
+                    onClick={() => {
+                        triggerVibration([30, 100, 30]);
+                        signOut();
+                    }}
                     className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2 active:scale-95"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -19,8 +19,7 @@ export const createUserApi = (api: AxiosInstance) => ({
     },
     
     getLatestMedias: async (mediaType: 'movie' | 'tv'): Promise<MediaCustomResponse[]> => {
-        const endpoint = mediaType === 'movie' ? '/user/movies/latest' : '/user/tv/latest';
-        const response = await api.get<MediaCustomResponse[]>(endpoint);
+        const response = await api.get<MediaCustomResponse[]>(`/user/${mediaType}s/latest`);
         return response.data;
     },
 });

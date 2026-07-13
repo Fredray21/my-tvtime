@@ -7,19 +7,24 @@ import (
 
 	"github.com/Fredray21/my-tvtime/internal/movie"
 	"github.com/Fredray21/my-tvtime/internal/tmdb"
+	"github.com/Fredray21/my-tvtime/internal/tv"
 )
 
 type UserService struct {
 	repo         *Repository
 	tmdbClient   *tmdb.Client
 	movieService *movie.MovieService
+	tvService    *tv.TVService
+	tvRepo       *tv.Repository
 }
 
-func NewService(repo *Repository, tmdbClient *tmdb.Client, movieSvc *movie.MovieService) *UserService {
+func NewService(repo *Repository, tmdbClient *tmdb.Client, movieSvc *movie.MovieService, tvSvc *tv.TVService, tvRepo *tv.Repository) *UserService {
 	return &UserService{
 		tmdbClient:   tmdbClient,
 		repo:         repo,
 		movieService: movieSvc,
+		tvService:    tvSvc,
+		tvRepo:       tvRepo,
 	}
 }
 
@@ -70,9 +75,11 @@ func (s *UserService) GetUserStats(userID string) (UserStatsResponse, error) {
 
 	wg.Wait()
 
-	// 3. Simulation des Séries en attendant d'avoir la table user_tv
-	stats.TV.TotalEpisodesWatched = 450
-	stats.TV.TotalRuntimeMinutes = 20250
+	tvStats, err := s.GetTVStats(userID)
+	if err != nil {
+		return stats, err
+	}
+	stats.TV = tvStats
 
 	return stats, nil
 }
@@ -89,4 +96,44 @@ func (s *UserService) GetLatestWatchedMovies(userID string, limit int) ([]movie.
 	}
 
 	return s.movieService.EnrichMovieRecords(userID, movieRecords)
+}
+
+func (s *UserService) GetTVStats(userID string) (TVStats, error) {
+	var stats TVStats
+
+	episodes, err := s.tvRepo.GetAllWatchedEpisodes(userID)
+	if err != nil {
+		return stats, err
+	}
+
+	for _, ep := range episodes {
+		count := 1 + ep.RewatchCount
+		stats.TotalEpisodesWatched += count
+
+		// Estimation de la durée (42min/épisode en moyenne)
+		stats.TotalRuntimeMinutes += (42 * count)
+	}
+
+	return stats, nil
+}
+
+// Récupération des dernières séries vues (Latest)
+func (s *UserService) GetLatestWatchedTV(userID string, limit int) ([]tv.SeriesCustomResponse, error) {
+	// 1. Récupérer les records (les séries les plus récemment vues)
+	// ATTENTION : Si tu as plusieurs épisodes d'une même série,
+	// utilise "DISTINCT ON (tmdb_series_id)" dans ta requête SQL pour ne pas avoir de doublons.
+	records, err := s.tvRepo.GetLatestWatchedEpisodes(userID, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Enrichir avec les détails de la SÉRIE
+	var enriched []tv.SeriesCustomResponse
+	for _, rec := range records {
+		details, err := s.tvService.GetSeriesDetailsForUser(userID, rec.TMDBSeriesID)
+		if err == nil {
+			enriched = append(enriched, *details)
+		}
+	}
+	return enriched, nil
 }

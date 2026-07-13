@@ -7,6 +7,7 @@ import { MovieDetailsView } from './features/movie/MovieDetailsView';
 import { ProfileView } from './features/profile/ProfileView';
 import { WatchedView } from './features/watched/WatchedView';
 import { WatchlistView } from './features/watchlist/WatchlistView';
+import { TVDetailsView } from './features/tv/TVDetailsView';
 
 // 1. Récupération de la clé Clerk depuis les variables d'environnement Vite
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -47,7 +48,9 @@ export const App = () => {
                             <Route path="/tv" element={<WatchlistView mediaType="tv" />} />
 
                             <Route path="/search" element={<SearchView />} />
+                            
                             <Route path="/movie/:id" element={<MovieDetailsView />} />
+                            <Route path="/tv/:id" element={<TVDetailsView />} />
 
                             <Route path='/watched/movies' element={<WatchedView mediaType={'movie'} />} />
                             <Route path='/watched/tv' element={<WatchedView mediaType={'tv'} />} />

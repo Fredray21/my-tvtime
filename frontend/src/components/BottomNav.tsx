@@ -4,7 +4,7 @@ import { triggerVibration } from '../utils/haptics';
 export const BottomNav = () => {
     return (
         <nav className="fixed bottom-0 left-0 right-0 bg-zinc-950/90 backdrop-blur-md border-t border-zinc-900 pb-safe pt-2 px-6 z-50">
-            <div className="flex justify-between items-center max-w-md mx-auto h-14">
+            <div className="flex justify-around items-center max-w-md mx-auto h-14">
 
                 {/* Movie Watchlist */}
                 <NavLink

@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../../context/ApiContext';
 import { MediaCard } from '../../components/MediaCard';
+import { triggerVibration } from '../../utils/haptics';
 
 export const MovieDetailsView = () => {
     const { id } = useParams<{ id: string }>();
@@ -92,7 +93,10 @@ export const MovieDetailsView = () => {
 
                 {/* Bouton Retour Flottant */}
                 <button
-                    onClick={() => navigate(-1)}
+                    onClick={() => {
+                        triggerVibration()
+                        navigate(-1)
+                    }}
                     className="absolute top-4 left-4 bg-black/40 backdrop-blur-md p-2 rounded-full text-white hover:bg-black/60 transition"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -104,7 +108,10 @@ export const MovieDetailsView = () => {
                 {/* Bouton Favori (Cœur) top right */}
                 {movie.status_local === "watched" &&
                     <button
-                        onClick={() => mutation.mutate({ newStatus: movie.status_local, isFavorite: !movie.is_favorite, rewatch_count: movie.rewatch_count })}
+                        onClick={() => {
+                            triggerVibration([30, 100, 30])
+                            mutation.mutate({ newStatus: movie.status_local, isFavorite: !movie.is_favorite, rewatch_count: movie.rewatch_count })
+                        }}
                         className={`absolute top-4 right-4 p-2 rounded-full text-white transition bg-black/40 hover:bg-black/60`}
                     >
                         {movie.is_favorite ? '❤️' : '🤍'}
@@ -131,7 +138,12 @@ export const MovieDetailsView = () => {
                         <>
                             {/* Bouton État : Déjà vu (Clic pour passer en not_tracked) */}
                             <button
-                                onClick={() => mutation.mutate({ newStatus: 'not_tracked', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })}
+                                onClick={() => 
+                                {
+                                    triggerVibration([50, 80, 20]);
+                                    mutation.mutate({ newStatus: 'not_tracked', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
+                                }}
+                                    
                                 className="flex-[2] py-3 rounded-xl font-bold text-sm bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/30 transition-all"
                             >
                                 ✅ Déjà vu
@@ -141,11 +153,16 @@ export const MovieDetailsView = () => {
                             <div className="flex items-center bg-zinc-900 rounded-xl border border-zinc-700 p-1">
                                 {/* Bouton Moins */}
                                 <button
-                                    onClick={() => mutation.mutate({
-                                        newStatus: 'watched',
-                                        isFavorite: movie.is_favorite,
-                                        rewatch_count: Math.max(0, (movie.rewatch_count || 0) - 1)
-                                    })}
+                                    onClick={() => 
+                                    {
+                                        triggerVibration();   
+                                        mutation.mutate({
+                                            newStatus: 'watched',
+                                            isFavorite: movie.is_favorite,
+                                            rewatch_count: Math.max(0, (movie.rewatch_count || 0) - 1)
+                                        })
+                                    }
+                                }
                                     disabled={(movie.rewatch_count || 0) <= 0}
                                     className="w-10 h-full flex items-center justify-center text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition"
                                 >
@@ -159,11 +176,16 @@ export const MovieDetailsView = () => {
 
                                 {/* Bouton Plus */}
                                 <button
-                                    onClick={() => mutation.mutate({
-                                        newStatus: 'watched',
-                                        isFavorite: movie.is_favorite,
-                                        rewatch_count: (movie.rewatch_count || 0) + 1
-                                    })}
+                                    onClick={() => 
+                                    {
+                                        triggerVibration();
+                                        mutation.mutate({
+                                            newStatus: 'watched',
+                                            isFavorite: movie.is_favorite,
+                                            rewatch_count: (movie.rewatch_count || 0) + 1
+                                        })
+                                    }
+                                }
                                     className="w-10 h-full flex items-center justify-center text-zinc-400 hover:text-white transition"
                                 >
                                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1V11M1 6H11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
@@ -174,7 +196,18 @@ export const MovieDetailsView = () => {
                         <>
                             {/* Mode standard : pas encore vu */}
                             <button
-                                onClick={() => mutation.mutate({ newStatus: movie.status_local === 'watchlist' ? 'not_tracked' : 'watchlist', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })}
+                                onClick={() => {
+                                    const newStatus = movie.status_local === 'watchlist' ? 'not_tracked' : 'watchlist'
+                                    
+                                    if(newStatus === 'watchlist') {
+                                        triggerVibration([20, 80, 50]);
+                                    } else {
+                                        triggerVibration([50, 80, 20]);
+                                    }
+
+                                    mutation.mutate({ newStatus: newStatus, isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
+                                }}
+                                    
                                 className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${movie.status_local === 'watchlist'
                                     ? 'bg-purple-500 text-black hover:bg-purple-400'
                                     : 'bg-zinc-800 text-white hover:bg-zinc-700'
@@ -184,7 +217,11 @@ export const MovieDetailsView = () => {
                             </button>
 
                             <button
-                                onClick={() => mutation.mutate({ newStatus: 'watched', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })}
+                                onClick={() => 
+                                {
+                                    triggerVibration([20, 80, 50]);
+                                    mutation.mutate({ newStatus: 'watched', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
+                                }}
                                 className="flex-1 py-3 rounded-xl font-bold text-sm bg-zinc-800 text-white hover:bg-zinc-700 transition-all"
                             >
                                 👁️ Marquer vu

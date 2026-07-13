@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { triggerVibration } from '../utils/haptics';
 
 export const BottomNav = () => {
     return (
@@ -7,6 +8,7 @@ export const BottomNav = () => {
 
                 {/* Movie Watchlist */}
                 <NavLink
+                    onClick={() => triggerVibration(15)}
                     to="/"
                     className={({ isActive }) =>
                         `flex flex-col items-center gap-1 transition-colors ${isActive ? 'text-purple-500' : 'text-zinc-500 hover:text-zinc-400'
@@ -24,6 +26,7 @@ export const BottomNav = () => {
 
                 {/* TV Watchlist */}
                 <NavLink
+                    onClick={() => triggerVibration(15)}
                     to="/tv"
                     className={({ isActive }) =>
                         `flex flex-col items-center gap-1 transition-colors ${isActive ? 'text-purple-500' : 'text-zinc-500 hover:text-zinc-400'
@@ -39,6 +42,7 @@ export const BottomNav = () => {
 
                 {/* Lien Recherche */}
                 <NavLink
+                    onClick={() => triggerVibration(15)}
                     to="/search"
                     className={({ isActive }) =>
                         `flex flex-col items-center gap-1 transition-colors ${isActive ? 'text-purple-500' : 'text-zinc-500 hover:text-zinc-400'
@@ -54,6 +58,7 @@ export const BottomNav = () => {
 
                 {/* Lien Profil (Pour plus tard) */}
                 <NavLink
+                    onClick={() => triggerVibration(15)}
                     to="/profile"
                     className={({ isActive }) =>
                         `flex flex-col items-center gap-1 transition-colors ${isActive ? 'text-purple-500' : 'text-zinc-500 hover:text-zinc-400'

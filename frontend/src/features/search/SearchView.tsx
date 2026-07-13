@@ -11,12 +11,12 @@ type TabType = 'all' | 'movie' | 'tv' | 'person';
 export const SearchView = () => {
     const api = useApi();
     const [searchParams, setSearchParams] = useSearchParams();
-    const searchQuery = searchParams.get('q') || '';
     const activeTab = (searchParams.get('tab') as TabType) || 'all';
 
+    const [localQuery, setLocalQuery] = useState(searchParams.get('q') || '');
     const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
-    const debouncedQuery = useDebounce(searchQuery, 500);
+    const debouncedQuery = useDebounce(localQuery, 500);
 
     // 1. RECHERCHE TOUT (Multi-search sans pagination)
     const { data: multiData, isLoading: isMultiLoading } = useQuery({
@@ -40,16 +40,19 @@ export const SearchView = () => {
         enabled: debouncedQuery.length > 1 && activeTab !== 'all',
     });
 
-    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newQuery = e.target.value;
+    React.useEffect(() => {
         setSearchParams((prev) => {
-            if (newQuery) {
-                prev.set('q', newQuery);
+            if (debouncedQuery) {
+                prev.set('q', debouncedQuery);
             } else {
                 prev.delete('q');
             }
             return prev;
         }, { replace: true });
+    }, [debouncedQuery, setSearchParams]);
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setLocalQuery(e.target.value);
     };
 
     const handleTabChange = (tab: TabType) => {
@@ -66,7 +69,7 @@ export const SearchView = () => {
                 <input
                     type="text"
                     placeholder="Films, séries, acteurs..."
-                    value={searchQuery}
+                    value={localQuery}
                     onChange={handleSearchChange}
                     className="w-full bg-zinc-900 text-zinc-100 placeholder-zinc-500 text-sm rounded-xl px-4 py-3 border border-zinc-800 focus:outline-none focus:border-zinc-700 font-medium transition-all"
                 />

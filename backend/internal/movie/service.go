@@ -3,6 +3,7 @@ package movie
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/Fredray21/my-tvtime/internal/tmdb"
 )
@@ -65,14 +66,12 @@ func NewService(repo *Repository, tmdbClient *tmdb.Client) *MovieService {
 	}
 }
 
-// 2. LOGIQUE MÉTIER : Met à jour ou ajoute le statut d'un film
-func (s *MovieService) UpdateMovieStatus(userID string, tmdbMovieID int, status string, isFavorite bool, rewatchCount int) error {
-	// On peut ajouter des validations ici (ex: vérifier si le statut est bien 'watchlist' ou 'watched')
+func (s *MovieService) UpdateMovieStatus(userID string, tmdbMovieID int, status string, isFavorite bool, rewatchCount int, watchedAt time.Time) error {
 	if status != "watchlist" && status != "watched" {
 		return fmt.Errorf("statut invalide: %s", status)
 	}
 
-	return s.repo.SaveMovieStatus(userID, tmdbMovieID, status, isFavorite, rewatchCount)
+	return s.repo.SaveMovieStatus(userID, tmdbMovieID, status, isFavorite, rewatchCount, watchedAt)
 }
 
 // 3. LOGIQUE MÉTIER : Supprime un film de la liste de l'utilisateur

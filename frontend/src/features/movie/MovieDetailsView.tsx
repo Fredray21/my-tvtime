@@ -292,7 +292,7 @@ export const MovieDetailsView = () => {
                     </div>
                 )}
 
-                {/* 🟢 SECTION FILMS SIMILAIRES */}
+                {/*SECTION FILMS SIMILAIRES */}
                 <div className="mb-12 mt-12 border-t border-zinc-800/50 pt-8">
                     <h2 className="text-sm font-bold text-zinc-100 uppercase tracking-wider mb-4">
                         Films similaires

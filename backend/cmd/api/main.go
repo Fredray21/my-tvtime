@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/Fredray21/my-tvtime/database"
+	"github.com/Fredray21/my-tvtime/internal/importservice"
 	"github.com/Fredray21/my-tvtime/internal/middleware"
 	"github.com/Fredray21/my-tvtime/internal/movie"
 	"github.com/Fredray21/my-tvtime/internal/search"
@@ -48,6 +49,10 @@ func main() {
 	tvHandler := tv.NewHandler(tvService)
 	userHandler := user.NewHandler(userService)
 	searchHandler := search.NewHandler(searchService)
+
+	taskManager := importservice.NewTaskManager()
+	tvTimeImporter := importservice.NewTVTimeImporter(tmdbClient, taskManager)
+	importHandler := importservice.NewImportHandler(tvTimeImporter, taskManager, movieService, tvService)
 
 	r := gin.Default()
 
@@ -106,6 +111,10 @@ func main() {
 		api.GET("/user/movies/latest", userHandler.HandleGetLatestMovies)
 		api.GET("/user/tvs/latest", userHandler.HandleGetLatestTV)
 
+		// Import
+		api.POST("/import/tvtime/upload", importHandler.HandleUploadTVTime)
+		api.GET("/import/tvtime/status/:taskID", importHandler.HandleGetStatus)
+		api.POST("/import/tvtime/confirm", importHandler.HandleConfirmImport)
 	}
 
 	// Start Server

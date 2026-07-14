@@ -39,8 +39,8 @@ export const TVDetailsView = () => {
         enabled: !isNaN(seriesId) && !!series,
     });
 
-    const watchedEpisodes = seasonData?.episodes.filter((ep: any) => ep.is_watched) ?? [];
-    const isAllWatched = watchedEpisodes.length === seasonData?.episodes.length;
+    const watchedEpisodes = seasonData?.episodes?.filter((ep: any) => ep.is_watched) ?? [];
+    const isAllWatched = watchedEpisodes.length === seasonData?.episodes?.length;
 
     // 3. Récupération des séries similaires
     const { data: similarSeries, isLoading: isSimilarLoading } = useQuery({
@@ -323,7 +323,7 @@ export const TVDetailsView = () => {
                         <div className="h-32 bg-zinc-900 rounded-xl mb-6" /> {/* Placeholder Header Saison */}
                         {[1, 2, 3].map((i) => <div key={i} className="h-20 bg-zinc-900 rounded-xl" />)}
                     </div>
-                ) : seasonData && seasonData.episodes ? 
+                ) : seasonData ? 
                 (
                     <div>
                         <div className="flex gap-4 mb-6 bg-zinc-900/30 p-4 rounded-xl border border-zinc-800/50">
@@ -360,7 +360,7 @@ export const TVDetailsView = () => {
                                     <p className="text-xs text-zinc-600 italic">Aucun résumé pour cette saison.</p>
                                 )}
 
-                                {!isAllWatched && (
+                                {!isAllWatched && seasonData.episodes && (
                                     <button
                                         onClick={() => {
                                             triggerVibration([100, 50, 100]);
@@ -377,7 +377,7 @@ export const TVDetailsView = () => {
 
                         {/* 📝 LISTE DES ÉPISODES */}
                         <div className="flex flex-col gap-2.5">
-                            {seasonData.episodes.slice(0, visibleEpisodesCount).map((ep: any) => {
+                            {seasonData.episodes && seasonData.episodes.slice(0, visibleEpisodesCount).map((ep: any) => {
                                 const stillUrl = ep.still_path
                                     ? `https://image.tmdb.org/t/p/w300${ep.still_path}`
                                     : 'https://dummyimage.com/300x170/27272a/71717a?text=Pas+d%27image';

@@ -3,6 +3,7 @@ package movie
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -38,7 +39,7 @@ func (h *Handler) HandleUpdateStatus(c *gin.Context) {
 		return
 	}
 
-	err := h.service.UpdateMovieStatus(userID.(string), req.TMDBMovieID, req.StatusLocal, req.IsFavorite, req.RewatchCount)
+	err := h.service.UpdateMovieStatus(userID.(string), req.TMDBMovieID, req.StatusLocal, req.IsFavorite, req.RewatchCount, time.Now())
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

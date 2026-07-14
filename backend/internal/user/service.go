@@ -1,10 +1,6 @@
 package user
 
 import (
-	"encoding/json"
-	"sync"
-	"time"
-
 	"github.com/Fredray21/my-tvtime/internal/movie"
 	"github.com/Fredray21/my-tvtime/internal/tmdb"
 	"github.com/Fredray21/my-tvtime/internal/tv"
@@ -31,49 +27,11 @@ func NewService(repo *Repository, tmdbClient *tmdb.Client, movieSvc *movie.Movie
 func (s *UserService) GetUserStats(userID string) (UserStatsResponse, error) {
 	var stats UserStatsResponse
 
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-
-	// 1. On récupère la liste depuis la base de données
-	watchedRecords, err := s.repo.GetLatestWatchedMovies(userID, 0)
+	movieStats, err := s.GetMovieStats(userID)
 	if err != nil {
 		return stats, err
 	}
-
-	batchSize := 20
-
-	// 2. On boucle pour calculer les stats
-	for i, record := range watchedRecords {
-		totalViews := 1 + record.RewatchCount
-		stats.Movies.TotalWatched += totalViews
-
-		wg.Add(1)
-
-		go func(rec movie.MovieRecord, views int) {
-			defer wg.Done() // Dit au WaitGroup que cette goroutine a fini son travail
-
-			tmdbBytes, err := s.tmdbClient.GetMovieDetails(rec.TMDBMovieID)
-			if err != nil {
-				return
-			}
-
-			// 2. On décode le JSON de TMDB dans notre structure de film complète
-			var details movie.TMDBMovieResult
-			if err := json.Unmarshal(tmdbBytes, &details); err != nil {
-				return
-			}
-
-			mu.Lock()
-			stats.Movies.TotalRuntimeMinutes += details.Runtime * views
-			mu.Unlock()
-		}(record, totalViews)
-
-		if (i+1)%batchSize == 0 {
-			time.Sleep(500 * time.Millisecond)
-		}
-	}
-
-	wg.Wait()
+	stats.Movies = movieStats
 
 	tvStats, err := s.GetTVStats(userID)
 	if err != nil {
@@ -84,8 +42,10 @@ func (s *UserService) GetUserStats(userID string) (UserStatsResponse, error) {
 	return stats, nil
 }
 
-func (s *UserService) GetLatestWatchedMovies(userID string, limit int) ([]movie.MovieCustomResponse, error) {
-	records, err := s.repo.GetLatestWatchedMovies(userID, limit)
+func (s *UserService) GetLatestWatchedMovies(userID string, page, limit int) ([]movie.MovieCustomResponse, error) {
+	offset := (page - 1) * limit
+
+	records, err := s.repo.GetLatestWatchedMovies(userID, limit+1, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -96,6 +56,45 @@ func (s *UserService) GetLatestWatchedMovies(userID string, limit int) ([]movie.
 	}
 
 	return s.movieService.EnrichMovieRecords(userID, movieRecords)
+}
+
+func (s *UserService) GetLatestWatchedTV(userID string, page, limit int) ([]tv.SeriesCustomResponse, error) {
+	offset := (page - 1) * limit
+
+	records, err := s.tvRepo.GetLatestWatchedEpisodes(userID, limit+1, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Enrichir avec les détails de la SÉRIE
+	var enriched []tv.SeriesCustomResponse
+	for _, rec := range records {
+		details, err := s.tvService.GetSeriesDetailsForUser(userID, rec.TMDBSeriesID)
+		if err == nil {
+			enriched = append(enriched, *details)
+		}
+	}
+	return enriched, nil
+}
+
+func (s *UserService) GetMovieStats(userID string) (MovieStats, error) {
+	var stats MovieStats
+
+	watchedRecords, err := s.repo.GetLatestWatchedMovies(userID, 0, 0)
+	if err != nil {
+		return stats, err
+	}
+
+	// 2. On boucle sans appels externes !
+	for _, record := range watchedRecords {
+		totalViews := 1 + record.RewatchCount
+		stats.TotalWatched += totalViews
+
+		// Estimation de la durée (105 min/film en moyenne)
+		stats.TotalRuntimeMinutes += (105 * totalViews)
+	}
+
+	return stats, nil
 }
 
 func (s *UserService) GetTVStats(userID string) (TVStats, error) {
@@ -115,25 +114,4 @@ func (s *UserService) GetTVStats(userID string) (TVStats, error) {
 	}
 
 	return stats, nil
-}
-
-// Récupération des dernières séries vues (Latest)
-func (s *UserService) GetLatestWatchedTV(userID string, limit int) ([]tv.SeriesCustomResponse, error) {
-	// 1. Récupérer les records (les séries les plus récemment vues)
-	// ATTENTION : Si tu as plusieurs épisodes d'une même série,
-	// utilise "DISTINCT ON (tmdb_series_id)" dans ta requête SQL pour ne pas avoir de doublons.
-	records, err := s.tvRepo.GetLatestWatchedEpisodes(userID, limit)
-	if err != nil {
-		return nil, err
-	}
-
-	// 2. Enrichir avec les détails de la SÉRIE
-	var enriched []tv.SeriesCustomResponse
-	for _, rec := range records {
-		details, err := s.tvService.GetSeriesDetailsForUser(userID, rec.TMDBSeriesID)
-		if err == nil {
-			enriched = append(enriched, *details)
-		}
-	}
-	return enriched, nil
 }

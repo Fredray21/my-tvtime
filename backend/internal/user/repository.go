@@ -22,12 +22,12 @@ func (r *Repository) EnsureUserExists(clerkUserID string) error {
 }
 
 // GetUserWatchedMovies récupère les IDs et le nombre de visionnages des films vus
-func (r *Repository) GetLatestWatchedMovies(userID string, limit int) ([]movie.MovieRecord, error) {
+func (r *Repository) GetLatestWatchedMovies(userID string, limit, offset int) ([]movie.MovieRecord, error) {
 	query := `
         SELECT id, user_id, tmdb_movie_id, status, is_favorite, rewatch_count  
         FROM user_movies 
         WHERE user_id = $1 AND status = 'watched' 
-        ORDER BY updated_at DESC 
+        ORDER BY updated_at DESC
     `
 
 	args := []interface{}{userID}
@@ -35,6 +35,11 @@ func (r *Repository) GetLatestWatchedMovies(userID string, limit int) ([]movie.M
 	if limit > 0 {
 		query += " LIMIT $2"
 		args = append(args, limit)
+	}
+
+	if offset > 0 {
+		query += " OFFSET $3"
+		args = append(args, offset)
 	}
 
 	rows, err := r.db.Query(query, args...)

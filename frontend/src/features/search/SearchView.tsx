@@ -100,14 +100,20 @@ export const SearchView = () => {
                 {activeTab !== 'all' && (
                     <div className="flex items-center bg-zinc-900 rounded-lg p-1 border border-zinc-800 mb-2 flex-shrink-0">
                         <button
-                            onClick={() => setViewMode('card')}
+                            onClick={() => {
+                                triggerVibration(15);
+                                setViewMode('card')
+                            }}
                             className={`p-1.5 rounded-md transition-colors ${viewMode === 'card' ? 'bg-zinc-800 text-purple-500 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
                                 }`}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                         </button>
                         <button
-                            onClick={() => setViewMode('list')}
+                            onClick={() => {
+                                triggerVibration(15);
+                                setViewMode('list')
+                            }}
                             className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-zinc-800 text-purple-500 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
                                 }`}
                         >

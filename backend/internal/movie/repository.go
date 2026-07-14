@@ -3,6 +3,7 @@ package movie
 import (
 	"database/sql"
 	"errors"
+	"time"
 )
 
 type Repository struct {
@@ -15,18 +16,22 @@ func NewRepository(db *sql.DB) *Repository {
 
 // 1. UPSERT : Ajoute ou met à jour le statut d'un film (Watchlist, Vu, Favori...)
 // Grâce à ON CONFLICT, on gère la création et la modification au même endroit.
-func (r *Repository) SaveMovieStatus(userID string, tmdbMovieID int, status string, isFavorite bool, rewatchCount int) error {
+func (r *Repository) SaveMovieStatus(userID string, tmdbMovieID int, status string, isFavorite bool, rewatchCount int, watchedAt time.Time) error {
+	if watchedAt.IsZero() {
+		watchedAt = time.Now()
+	}
+
 	query := `
-		INSERT INTO user_movies (user_id, tmdb_movie_id, status, is_favorite, rewatch_count, updated_at)
-		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+		INSERT INTO user_movies (user_id, tmdb_movie_id, status, is_favorite, rewatch_count, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (user_id, tmdb_movie_id)
 		DO UPDATE SET 
 			status = EXCLUDED.status,
 			is_favorite = EXCLUDED.is_favorite,
 			rewatch_count = EXCLUDED.rewatch_count,
-			updated_at = CURRENT_TIMESTAMP;
+			updated_at = EXCLUDED.updated_at;
 	`
-	_, err := r.db.Exec(query, userID, tmdbMovieID, status, isFavorite, rewatchCount)
+	_, err := r.db.Exec(query, userID, tmdbMovieID, status, isFavorite, rewatchCount, watchedAt, watchedAt)
 	return err
 }
 

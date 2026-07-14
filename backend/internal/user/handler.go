@@ -2,6 +2,7 @@ package user
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,13 +22,25 @@ func (h *Handler) HandleGetLatestMovies(c *gin.Context) {
 		return
 	}
 
-	movies, err := h.service.GetLatestWatchedMovies(userID.(string), 20)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	movies, err := h.service.GetLatestWatchedMovies(userID.(string), page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service error", "details": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, movies)
+	hasNextPage := len(movies) > limit
+	if hasNextPage {
+		movies = movies[:limit]
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"results":       movies,
+		"page":          page,
+		"has_next_page": hasNextPage,
+	})
 }
 
 // GET /api/user/tv/latest
@@ -38,14 +51,26 @@ func (h *Handler) HandleGetLatestTV(c *gin.Context) {
 		return
 	}
 
-	// On récupère les 20 derniers épisodes vus
-	episodes, err := h.service.GetLatestWatchedTV(userID.(string), 20)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	// On récupère les épisodes vus
+	episodes, err := h.service.GetLatestWatchedTV(userID.(string), page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, episodes)
+	hasNextPage := len(episodes) > limit
+	if hasNextPage {
+		episodes = episodes[:limit]
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"results":       episodes,
+		"page":          page,
+		"has_next_page": hasNextPage,
+	})
 }
 
 // GET /api/user/stats

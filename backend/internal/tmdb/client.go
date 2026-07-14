@@ -42,6 +42,18 @@ func (c *Client) SearchPaged(searchType string, query string, page int) ([]byte,
 	return c.get(reqURL)
 }
 
+func (c *Client) SearchMovie(title string) ([]byte, error) {
+	encodedQuery := url.QueryEscape(title)
+	reqURL := fmt.Sprintf("%s/search/movie?api_key=%s&query=%s", c.baseURL, c.apiKey, encodedQuery)
+	return c.get(reqURL)
+}
+
+func (c *Client) SearchTVShow(title string) ([]byte, error) {
+	encodedQuery := url.QueryEscape(title)
+	reqURL := fmt.Sprintf("%s/search/tv?api_key=%s&query=%s", c.baseURL, c.apiKey, encodedQuery)
+	return c.get(reqURL)
+}
+
 // GetMovieDetails récupère les infos complètes d'un film (synopsis, note, poster...)
 func (c *Client) GetMovieDetails(tmdbMovieID int) ([]byte, error) {
 	reqURL := fmt.Sprintf("%s/movie/%d?api_key=%s&language=fr-FR", c.baseURL, tmdbMovieID, c.apiKey)
@@ -79,6 +91,11 @@ func (c *Client) GetSimilarSeries(seriesID int) ([]byte, error) {
 
 func (c *Client) GetEpisodeDetails(seriesID int, seasonNumber int, episodeNumber int) ([]byte, error) {
 	url := fmt.Sprintf("%s/tv/%d/season/%d/episode/%d?api_key=%s&language=fr-FR", c.baseURL, seriesID, seasonNumber, episodeNumber, c.apiKey)
+	return c.get(url)
+}
+
+func (c *Client) GetTMDBIDFromTVDB(tvdbID int) ([]byte, error) {
+	url := fmt.Sprintf("%s/find/%d?api_key=%s&external_source=tvdb_id", c.baseURL, tvdbID, c.apiKey)
 	return c.get(url)
 }
 

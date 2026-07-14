@@ -3,6 +3,7 @@ package tv
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/Fredray21/my-tvtime/internal/tmdb"
 )
@@ -168,7 +169,7 @@ func NewService(repo *Repository, tmdbClient *tmdb.Client) *TVService {
 }
 
 // WatchEpisode gère le visionnage d'un épisode et met à jour automatiquement l'état de la série.
-func (s *TVService) WatchEpisode(userID string, tmdbSeriesID int, seasonNumber int, episodeNumber int) error {
+func (s *TVService) WatchEpisode(userID string, tmdbSeriesID int, seasonNumber int, episodeNumber int, watchedAt time.Time, serieIsFavorite bool) error {
 	// 1. SÉCURITÉ CLÉ ÉTRANGÈRE COMPOSITE
 	// On vérifie si la série existe déjà dans la table user_series
 	record, err := s.repo.GetSeriesStatus(userID, tmdbSeriesID)
@@ -179,7 +180,7 @@ func (s *TVService) WatchEpisode(userID string, tmdbSeriesID int, seasonNumber i
 	// Si la ligne n'existe pas, on l'initialise d'abord (ici en 'watching')
 	// pour respecter la contrainte de clé étrangère (fk_user_series) de ta table user_episodes
 	if record == nil {
-		err = s.repo.SaveSeriesStatus(userID, tmdbSeriesID, "watching", false)
+		err = s.repo.SaveSeriesStatus(userID, tmdbSeriesID, "watching", serieIsFavorite, watchedAt)
 		if err != nil {
 			return err
 		}
@@ -250,7 +251,7 @@ func (s *TVService) SyncSeriesStatus(userID string, tmdbSeriesID int) error {
 
 	// 5. Sauvegarde en BDD uniquement si le statut a changé
 	if newStatus != record.Status {
-		return s.repo.SaveSeriesStatus(userID, tmdbSeriesID, newStatus, record.IsFavorite)
+		return s.repo.SaveSeriesStatus(userID, tmdbSeriesID, newStatus, record.IsFavorite, time.Now())
 	}
 
 	return nil
@@ -293,7 +294,7 @@ func (s *TVService) UpdateSeriesStatus(userID string, tmdbSeriesID int, status s
 	if status != "watchlist" && status != "watching" && status != "finished" && status != "pending" {
 		return fmt.Errorf("statut invalide: %s", status)
 	}
-	return s.repo.SaveSeriesStatus(userID, tmdbSeriesID, status, isFavorite)
+	return s.repo.SaveSeriesStatus(userID, tmdbSeriesID, status, isFavorite, time.Now())
 }
 
 // RemoveSeries efface la série (la BDD gérera la suppression des épisodes grâce au ON DELETE CASCADE)
@@ -368,7 +369,7 @@ func (s *TVService) GetSeasonDetailsForUser(userID string, seriesID int, seasonN
 	}
 
 	// 5. On enrichit chaque épisode de la saison avec le statut 'vu'
-	var enrichedEpisodes []EpisodeCustomResponse
+	enrichedEpisodes := make([]EpisodeCustomResponse, 0)
 	for _, tmdbEp := range tmdbSeason.Episodes {
 		customEp := EpisodeCustomResponse{
 			TMDBEpisodeShort: tmdbEp,

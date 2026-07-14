@@ -3,6 +3,7 @@ package tv
 import (
 	"database/sql"
 	"errors"
+	"time"
 )
 
 type Repository struct {
@@ -18,17 +19,21 @@ func NewRepository(db *sql.DB) *Repository {
 // ==========================================
 
 // SaveSeriesStatus : Ajoute ou met à jour le statut global d'une série (Watchlist, Watching, Finished, Pending)
-func (r *Repository) SaveSeriesStatus(userID string, tmdbSeriesID int, status string, isFavorite bool) error {
+func (r *Repository) SaveSeriesStatus(userID string, tmdbSeriesID int, status string, isFavorite bool, watchedAt time.Time) error {
+	if watchedAt.IsZero() {
+		watchedAt = time.Now()
+	}
+
 	query := `
-		INSERT INTO user_series (user_id, tmdb_series_id, status, is_favorite, updated_at)
-		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+		INSERT INTO user_series (user_id, tmdb_series_id, status, is_favorite, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (user_id, tmdb_series_id)
 		DO UPDATE SET 
 			status = EXCLUDED.status,
 			is_favorite = EXCLUDED.is_favorite,
-			updated_at = CURRENT_TIMESTAMP;
+			updated_at = EXCLUDED.updated_at
 	`
-	_, err := r.db.Exec(query, userID, tmdbSeriesID, status, isFavorite)
+	_, err := r.db.Exec(query, userID, tmdbSeriesID, status, isFavorite, watchedAt, watchedAt)
 	return err
 }
 
@@ -279,15 +284,15 @@ func (r *Repository) GetAllWatchedEpisodes(userID string) ([]EpisodeRecord, erro
 }
 
 // Récupère les épisodes les plus récents vus (pour le "Latest")
-func (r *Repository) GetLatestWatchedEpisodes(userID string, limit int) ([]EpisodeRecord, error) {
+func (r *Repository) GetLatestWatchedEpisodes(userID string, limit, offset int) ([]EpisodeRecord, error) {
 	query := `
         SELECT DISTINCT ON (tmdb_series_id) tmdb_series_id, season_number, episode_number, rewatch_count 
         FROM user_episodes 
         WHERE user_id = $1 
         ORDER BY tmdb_series_id, last_watched_at DESC 
-        LIMIT $2`
+        LIMIT $2 OFFSET $3`
 
-	rows, err := r.db.Query(query, userID, limit)
+	rows, err := r.db.Query(query, userID, limit, offset)
 	if err != nil {
 		return nil, err
 	}

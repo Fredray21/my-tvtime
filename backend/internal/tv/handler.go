@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -43,7 +44,7 @@ func (h *Handler) HandlerWatchEpisode(c *gin.Context) {
 		return
 	}
 
-	err := h.service.WatchEpisode(userID.(string), req.TMDBSeriesID, req.SeasonNumber, req.EpisodeNumber)
+	err := h.service.WatchEpisode(userID.(string), req.TMDBSeriesID, req.SeasonNumber, req.EpisodeNumber, time.Now(), false)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

@@ -190,6 +190,18 @@ export const TVDetailsView = () => {
                     {series.vote_average !== undefined && series.vote_average > 0 && (
                         <span className="text-amber-400">⭐️ {series.vote_average.toFixed(1)}/10</span>
                     )}
+
+                    {/* Dates de visionnage */}
+                    {series.status_local && series.status_local !== 'not_tracked' && series.status_local !== 'watchlist' && series.created_at && (
+                        <span className="ml-auto bg-zinc-900 border border-zinc-800 px-2 py-1 rounded text-zinc-400">
+                            Début : {new Date(series.created_at).toLocaleDateString('fr-FR')}
+                        </span>
+                    )}
+                    {series.status_local && series.status_local !== 'not_tracked' && series.status_local !== 'watchlist' && series.updated_at && series.updated_at !== series.created_at && (
+                        <span className="bg-zinc-900 border border-zinc-800 px-2 py-1 rounded text-zinc-400">
+                            Dernier : {new Date(series.updated_at).toLocaleDateString('fr-FR')}
+                        </span>
+                    )}
                 </div>
 
                 {/* BOUTONS D'ACTION (Watchlist globale) */}
@@ -212,6 +224,20 @@ export const TVDetailsView = () => {
                         }
                     </button>
                 </div>
+
+                {/* Genres */}
+                {series.genres && series.genres.length > 0 && (
+                    <div className="mb-6">
+                        <h2 className="text-sm font-bold text-zinc-100 uppercase tracking-wider mb-3">Genres</h2>
+                        <div className="flex flex-wrap gap-2">
+                            {series.genres.map(genre => (
+                                <span key={genre.id} className="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full text-xs font-medium text-zinc-300">
+                                    {genre.name}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Tagline & Synopsis */}
                 {series.tagline && (
@@ -236,20 +262,6 @@ export const TVDetailsView = () => {
                         </p>
                     </div>
                 </div>
-
-                {/* Genres */}
-                {series.genres && series.genres.length > 0 && (
-                    <div className="mb-6">
-                        <h2 className="text-sm font-bold text-zinc-100 uppercase tracking-wider mb-3">Genres</h2>
-                        <div className="flex flex-wrap gap-2">
-                            {series.genres.map(genre => (
-                                <span key={genre.id} className="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full text-xs font-medium text-zinc-300">
-                                    {genre.name}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                )}
 
                 {/* Studios de Production */}
                 {series.production_companies && series.production_companies.length > 0 && (
@@ -323,150 +335,150 @@ export const TVDetailsView = () => {
                         <div className="h-32 bg-zinc-900 rounded-xl mb-6" /> {/* Placeholder Header Saison */}
                         {[1, 2, 3].map((i) => <div key={i} className="h-20 bg-zinc-900 rounded-xl" />)}
                     </div>
-                ) : seasonData ? 
-                (
-                    <div>
-                        <div className="flex gap-4 mb-6 bg-zinc-900/30 p-4 rounded-xl border border-zinc-800/50">
-                            {seasonData.poster_path && (
-                                <img
-                                    src={`https://image.tmdb.org/t/p/w200${seasonData.poster_path}`}
-                                    alt={seasonData.name}
-                                    className="w-20 sm:w-24 rounded-lg object-cover shadow-md flex-shrink-0 border border-zinc-800"
-                                />
-                            )}
-                            <div className="flex flex-col justify-center">
-                                <h3 className="text-lg font-bold text-white mb-1">{seasonData.name}</h3>
-                                {seasonData.vote_average > 0 && (
-                                    <div className="text-amber-400 text-xs font-bold mb-2">
-                                        ⭐️ {seasonData.vote_average.toFixed(1)}/10
-                                    </div>
+                ) : seasonData ?
+                    (
+                        <div>
+                            <div className="flex gap-4 mb-6 bg-zinc-900/30 p-4 rounded-xl border border-zinc-800/50">
+                                {seasonData.poster_path && (
+                                    <img
+                                        src={`https://image.tmdb.org/t/p/w200${seasonData.poster_path}`}
+                                        alt={seasonData.name}
+                                        className="w-20 sm:w-24 rounded-lg object-cover shadow-md flex-shrink-0 border border-zinc-800"
+                                    />
                                 )}
-
-                                {seasonData.overview ? (
-                                    <div>
-                                        <p className={`text-xs text-zinc-400 leading-relaxed transition-all ${isOverviewExpanded ? '' : 'line-clamp-3'}`}>
-                                            {seasonData.overview}
-                                        </p>
-                                        {seasonData.overview.length > 150 && (
-                                            <button
-                                                onClick={() => setIsOverviewExpanded(!isOverviewExpanded)}
-                                                className="text-[10px] text-purple-400 hover:text-purple-300 font-bold mt-1.5 uppercase tracking-wider"
-                                            >
-                                                {isOverviewExpanded ? 'Réduire' : 'Lire la suite...'}
-                                            </button>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-zinc-600 italic">Aucun résumé pour cette saison.</p>
-                                )}
-
-                                {!isAllWatched && seasonData.episodes && (
-                                    <button
-                                        onClick={() => {
-                                            triggerVibration([100, 50, 100]);
-                                            watchAllMutation.mutate();
-                                        }}
-                                        className="mt-3 flex items-center gap-2 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-3 py-1.5 rounded-lg text-[11px] font-bold hover:bg-emerald-500/20 transition-all"
-                                    >
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                        Tout marquer comme vu ({seasonData.episodes.length - watchedEpisodes.length} restants)
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* 📝 LISTE DES ÉPISODES */}
-                        <div className="flex flex-col gap-2.5">
-                            {seasonData.episodes && seasonData.episodes.slice(0, visibleEpisodesCount).map((ep: any) => {
-                                const stillUrl = ep.still_path
-                                    ? `https://image.tmdb.org/t/p/w300${ep.still_path}`
-                                    : 'https://dummyimage.com/300x170/27272a/71717a?text=Pas+d%27image';
-
-                                return (
-                                    <div
-                                        key={ep.id}
-                                        className="bg-zinc-900/40 border border-zinc-800/50 rounded-xl p-2.5 flex items-center justify-between gap-3 transition-all hover:bg-zinc-900/80"
-                                    >
-                                        {/* IMAGE ET INFOS DE L'ÉPISODE RESTENT ICI... (Garde ton code existant pour la miniature et le titre) */}
-                                        <div className="w-24 h-16 sm:w-32 sm:h-20 flex-shrink-0 bg-zinc-950 rounded-lg overflow-hidden relative border border-zinc-800/50">
-                                            <img src={stillUrl} alt={ep.name} className="w-full h-full object-cover" loading="lazy" />
-                                            {ep.runtime > 0 && (
-                                                <div className="absolute bottom-1 right-1 bg-black/80 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                                                    {ep.runtime}m
-                                                </div>
-                                            )}
+                                <div className="flex flex-col justify-center">
+                                    <h3 className="text-lg font-bold text-white mb-1">{seasonData.name}</h3>
+                                    {seasonData.vote_average > 0 && (
+                                        <div className="text-amber-400 text-xs font-bold mb-2">
+                                            ⭐️ {seasonData.vote_average.toFixed(1)}/10
                                         </div>
+                                    )}
 
-                                        <div className="flex-grow min-w-0 flex flex-col justify-center">
-                                            <h3 className="text-sm font-bold text-zinc-200 line-clamp-1">
-                                                S{ep.season_number == 0 ? 'pecial' : ep.season_number} | E{ep.episode_number}.   {ep.name || 'Épisode sans titre'}
-                                            </h3>
-                                            <p className="text-[10px] text-zinc-400 mt-0.5 line-clamp-1">
-                                                {ep.air_date ? new Date(ep.air_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Date inconnue'}
+                                    {seasonData.overview ? (
+                                        <div>
+                                            <p className={`text-xs text-zinc-400 leading-relaxed transition-all ${isOverviewExpanded ? '' : 'line-clamp-3'}`}>
+                                                {seasonData.overview}
                                             </p>
-                                            {ep.overview && (
-                                                <p className="text-[11px] text-zinc-500 mt-1 line-clamp-1 sm:line-clamp-2">
-                                                    {ep.overview}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        {/* 👇 GESTION DU BOUTON POUBELLE vs MOINS 👇 */}
-                                        <div className="flex-shrink-0 flex items-center">
-                                            {ep.is_watched ? (
-                                                <div className="flex items-center bg-emerald-500/10 border border-emerald-500/30 rounded-lg overflow-hidden h-9">
-
-                                                    {/* BOUTON GAUCHE (Poubelle si x1, Moins si > x1) */}
-                                                    <button
-                                                        onClick={() => {
-                                                            triggerVibration();
-                                                            if (ep.rewatch_count === 0) {
-                                                                episodeMutation.mutate({ episodeNumber: ep.episode_number, action: 'remove' });
-                                                            } else {
-                                                                episodeMutation.mutate({ episodeNumber: ep.episode_number, action: 'decrement' });
-                                                            }
-                                                        }}
-                                                        className="px-2.5 h-full flex items-center justify-center text-emerald-500 hover:bg-emerald-500/20 hover:text-white transition"
-                                                    >
-                                                        {ep.rewatch_count === 0 ? (
-                                                            // Icône Poubelle
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                                                        ) : (
-                                                            // Icône Moins
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                                        )}
-                                                    </button>
-
-                                                    {/* COMPTEUR */}
-                                                    <span className="px-1 text-[11px] font-bold text-emerald-400 font-mono">
-                                                        x{(ep.rewatch_count || 0) + 1}
-                                                    </span>
-
-                                                    {/* BOUTON DROITE (Plus) */}
-                                                    <button
-                                                        onClick={() => { triggerVibration(20); episodeMutation.mutate({ episodeNumber: ep.episode_number, action: 'add' }); }}
-                                                        className="px-2.5 h-full flex items-center justify-center text-emerald-500 hover:bg-emerald-500/20 hover:text-white transition"
-                                                    >
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
-                                                    </button>
-                                                </div>
-                                            ) : (
+                                            {seasonData.overview.length > 150 && (
                                                 <button
-                                                    onClick={() => { triggerVibration(30); episodeMutation.mutate({ episodeNumber: ep.episode_number, action: 'add' }); }}
-                                                    className="h-9 w-10 sm:w-auto sm:px-4 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                                                    onClick={() => setIsOverviewExpanded(!isOverviewExpanded)}
+                                                    className="text-[10px] text-purple-400 hover:text-purple-300 font-bold mt-1.5 uppercase tracking-wider"
                                                 >
-                                                    👁️ <span className="hidden sm:inline">Vu</span>
+                                                    {isOverviewExpanded ? 'Réduire' : 'Lire la suite...'}
                                                 </button>
                                             )}
                                         </div>
-                                    </div>
-                                );
-                            })}
+                                    ) : (
+                                        <p className="text-xs text-zinc-600 italic">Aucun résumé pour cette saison.</p>
+                                    )}
+
+                                    {!isAllWatched && seasonData.episodes && (
+                                        <button
+                                            onClick={() => {
+                                                triggerVibration([100, 50, 100]);
+                                                watchAllMutation.mutate();
+                                            }}
+                                            className="mt-3 flex items-center gap-2 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-3 py-1.5 rounded-lg text-[11px] font-bold hover:bg-emerald-500/20 transition-all"
+                                        >
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            Tout marquer comme vu ({seasonData.episodes.length - watchedEpisodes.length} restants)
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* 📝 LISTE DES ÉPISODES */}
+                            <div className="flex flex-col gap-2.5">
+                                {seasonData.episodes && seasonData.episodes.slice(0, visibleEpisodesCount).map((ep: any) => {
+                                    const stillUrl = ep.still_path
+                                        ? `https://image.tmdb.org/t/p/w300${ep.still_path}`
+                                        : 'https://dummyimage.com/300x170/27272a/71717a?text=Pas+d%27image';
+
+                                    return (
+                                        <div
+                                            key={ep.id}
+                                            className="bg-zinc-900/40 border border-zinc-800/50 rounded-xl p-2.5 flex items-center justify-between gap-3 transition-all hover:bg-zinc-900/80"
+                                        >
+                                            {/* IMAGE ET INFOS DE L'ÉPISODE RESTENT ICI... (Garde ton code existant pour la miniature et le titre) */}
+                                            <div className="w-24 h-16 sm:w-32 sm:h-20 flex-shrink-0 bg-zinc-950 rounded-lg overflow-hidden relative border border-zinc-800/50">
+                                                <img src={stillUrl} alt={ep.name} className="w-full h-full object-cover" loading="lazy" />
+                                                {ep.runtime > 0 && (
+                                                    <div className="absolute bottom-1 right-1 bg-black/80 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                                        {ep.runtime}m
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="flex-grow min-w-0 flex flex-col justify-center">
+                                                <h3 className="text-sm font-bold text-zinc-200 line-clamp-1">
+                                                    S{ep.season_number == 0 ? 'pecial' : ep.season_number} | E{ep.episode_number}.   {ep.name || 'Épisode sans titre'}
+                                                </h3>
+                                                <p className="text-[10px] text-zinc-400 mt-0.5 line-clamp-1">
+                                                    {ep.air_date ? new Date(ep.air_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Date inconnue'}
+                                                </p>
+                                                {ep.overview && (
+                                                    <p className="text-[11px] text-zinc-500 mt-1 line-clamp-1 sm:line-clamp-2">
+                                                        {ep.overview}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            {/* 👇 GESTION DU BOUTON POUBELLE vs MOINS 👇 */}
+                                            <div className="flex-shrink-0 flex items-center">
+                                                {ep.is_watched ? (
+                                                    <div className="flex items-center bg-emerald-500/10 border border-emerald-500/30 rounded-lg overflow-hidden h-9">
+
+                                                        {/* BOUTON GAUCHE (Poubelle si x1, Moins si > x1) */}
+                                                        <button
+                                                            onClick={() => {
+                                                                triggerVibration();
+                                                                if (ep.rewatch_count === 0) {
+                                                                    episodeMutation.mutate({ episodeNumber: ep.episode_number, action: 'remove' });
+                                                                } else {
+                                                                    episodeMutation.mutate({ episodeNumber: ep.episode_number, action: 'decrement' });
+                                                                }
+                                                            }}
+                                                            className="px-2.5 h-full flex items-center justify-center text-emerald-500 hover:bg-emerald-500/20 hover:text-white transition"
+                                                        >
+                                                            {ep.rewatch_count === 0 ? (
+                                                                // Icône Poubelle
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                                            ) : (
+                                                                // Icône Moins
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                                            )}
+                                                        </button>
+
+                                                        {/* COMPTEUR */}
+                                                        <span className="px-1 text-[11px] font-bold text-emerald-400 font-mono">
+                                                            x{(ep.rewatch_count || 0) + 1}
+                                                        </span>
+
+                                                        {/* BOUTON DROITE (Plus) */}
+                                                        <button
+                                                            onClick={() => { triggerVibration(20); episodeMutation.mutate({ episodeNumber: ep.episode_number, action: 'add' }); }}
+                                                            className="px-2.5 h-full flex items-center justify-center text-emerald-500 hover:bg-emerald-500/20 hover:text-white transition"
+                                                        >
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => { triggerVibration(30); episodeMutation.mutate({ episodeNumber: ep.episode_number, action: 'add' }); }}
+                                                        className="h-9 w-10 sm:w-auto sm:px-4 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                                                    >
+                                                        👁️ <span className="hidden sm:inline">Vu</span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
-                ) : (
-                    <div className="text-center text-zinc-500 text-xs py-6">Impossible de charger la saison.</div>
-                )}
+                    ) : (
+                        <div className="text-center text-zinc-500 text-xs py-6">Impossible de charger la saison.</div>
+                    )}
 
                 {/* --- RECOMMANDATIONS SIMILAIRES --- */}
                 <div className="mb-12 mt-12 border-t border-zinc-800/50 pt-8">

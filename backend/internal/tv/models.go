@@ -8,6 +8,9 @@ type UserSeries struct {
 	TMDBSeriesID int    `json:"tmdb_series_id"`
 	Status       string `json:"status"` // 'watchlist', 'watching', 'finished', 'pending'
 	IsFavorite   bool   `json:"is_favorite"`
+
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
 }
 
 type UserEpisode struct {

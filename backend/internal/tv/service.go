@@ -115,9 +115,11 @@ type TMDBSeriesResult struct {
 // Réponse formatée pour ton frontend
 type SeriesCustomResponse struct {
 	TMDBSeriesResult
-	StatusLocal string `json:"status_local"` // 'watchlist', 'watching', 'finished', 'pending', 'not_tracked'
-	IsFavorite  bool   `json:"is_favorite"`
-	MediaType   string `json:"media_type"`
+	StatusLocal string    `json:"status_local"` // 'watchlist', 'watching', 'finished', 'pending', 'not_tracked'
+	IsFavorite  bool      `json:"is_favorite"`
+	MediaType   string    `json:"media_type"`
+	CreatedAt   time.Time `json:"created_at,omitempty"`
+	UpdatedAt   time.Time `json:"updated_at,omitempty"`
 }
 
 // Structures pour les saisons et épisodes (Celles qu'il manquait !)
@@ -180,7 +182,7 @@ func (s *TVService) WatchEpisode(userID string, tmdbSeriesID int, seasonNumber i
 	// Si la ligne n'existe pas, on l'initialise d'abord (ici en 'watching')
 	// pour respecter la contrainte de clé étrangère (fk_user_series) de ta table user_episodes
 	if record == nil {
-		err = s.repo.SaveSeriesStatus(userID, tmdbSeriesID, "watching", serieIsFavorite, watchedAt)
+		err = s.repo.SaveSeriesStatus(userID, tmdbSeriesID, "watching", serieIsFavorite, watchedAt, watchedAt)
 		if err != nil {
 			return err
 		}
@@ -188,7 +190,7 @@ func (s *TVService) WatchEpisode(userID string, tmdbSeriesID int, seasonNumber i
 
 	// 2. ENREGISTREMENT DE L'ÉPISODE
 	// Insère l'épisode ou incrémente le rewatch_count s'il existait déjà
-	err = s.repo.SaveEpisode(userID, tmdbSeriesID, seasonNumber, episodeNumber)
+	err = s.repo.SaveEpisode(userID, tmdbSeriesID, seasonNumber, episodeNumber, watchedAt)
 	if err != nil {
 		return err
 	}
@@ -214,6 +216,18 @@ func (s *TVService) SyncSeriesStatus(userID string, tmdbSeriesID int) error {
 		return err
 	}
 	totalWatched := len(watchedEps)
+
+	// Trouver la date de la dernière activité (last_watched_at)
+	lastActivity := record.UpdatedAt
+	if len(watchedEps) > 0 {
+		latest := watchedEps[0].LastWatchedAt
+		for _, ep := range watchedEps {
+			if ep.LastWatchedAt.After(latest) {
+				latest = ep.LastWatchedAt
+			}
+		}
+		lastActivity = latest
+	}
 
 	// 3. Récupérer le total à jour depuis TMDB via les bytes bruts
 	tmdbBytes, err := s.tmdbClient.GetSeriesDetails(tmdbSeriesID)
@@ -251,7 +265,7 @@ func (s *TVService) SyncSeriesStatus(userID string, tmdbSeriesID int) error {
 
 	// 5. Sauvegarde en BDD uniquement si le statut a changé
 	if newStatus != record.Status {
-		return s.repo.SaveSeriesStatus(userID, tmdbSeriesID, newStatus, record.IsFavorite, time.Now())
+		return s.repo.SaveSeriesStatus(userID, tmdbSeriesID, newStatus, record.IsFavorite, record.CreatedAt, lastActivity)
 	}
 
 	return nil
@@ -282,6 +296,8 @@ func (s *TVService) GetSeriesDetailsForUser(userID string, seriesID int) (*Serie
 	if record != nil {
 		customSeries.StatusLocal = record.Status
 		customSeries.IsFavorite = record.IsFavorite
+		customSeries.CreatedAt = record.CreatedAt
+		customSeries.UpdatedAt = record.UpdatedAt
 	} else {
 		customSeries.StatusLocal = "not_tracked"
 	}
@@ -290,11 +306,18 @@ func (s *TVService) GetSeriesDetailsForUser(userID string, seriesID int) (*Serie
 }
 
 // UpdateSeriesStatus permet de forcer un statut (ex: 'watchlist' ou 'favorite') sans regarder d'épisodes
-func (s *TVService) UpdateSeriesStatus(userID string, tmdbSeriesID int, status string, isFavorite bool) error {
+func (s *TVService) UpdateSeriesStatus(userID string, tmdbSeriesID int, status string, isFavorite bool, createdAt time.Time, updatedAt time.Time) error {
 	if status != "watchlist" && status != "watching" && status != "finished" && status != "pending" {
 		return fmt.Errorf("statut invalide: %s", status)
 	}
-	return s.repo.SaveSeriesStatus(userID, tmdbSeriesID, status, isFavorite, time.Now())
+
+	record, err := s.repo.GetSeriesStatus(userID, tmdbSeriesID)
+	if err == nil && record != nil {
+		createdAt = record.CreatedAt
+		updatedAt = record.UpdatedAt
+	}
+
+	return s.repo.SaveSeriesStatus(userID, tmdbSeriesID, status, isFavorite, createdAt, updatedAt)
 }
 
 // RemoveSeries efface la série (la BDD gérera la suppression des épisodes grâce au ON DELETE CASCADE)
@@ -415,7 +438,7 @@ func (s *TVService) WatchAllEpisodesInSeason(userID string, tmdbSeriesID, season
 	json.Unmarshal(seasonData, &season)
 
 	for _, ep := range season.Episodes {
-		_ = s.repo.SaveEpisode(userID, tmdbSeriesID, seasonNum, ep.EpisodeNumber)
+		_ = s.repo.SaveEpisode(userID, tmdbSeriesID, seasonNum, ep.EpisodeNumber, time.Now())
 	}
 
 	return s.SyncSeriesStatus(userID, tmdbSeriesID)

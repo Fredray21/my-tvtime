@@ -52,6 +52,9 @@ type MovieCustomResponse struct {
 	IsFavorite   bool   `json:"is_favorite"`
 	RewatchCount int    `json:"rewatch_count"`
 	MediaType    string `json:"media_type"`
+
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
 }
 
 type MovieService struct {
@@ -71,7 +74,25 @@ func (s *MovieService) UpdateMovieStatus(userID string, tmdbMovieID int, status 
 		return fmt.Errorf("statut invalide: %s", status)
 	}
 
-	return s.repo.SaveMovieStatus(userID, tmdbMovieID, status, isFavorite, rewatchCount, watchedAt)
+	finalUpdatedAt := watchedAt
+	if finalUpdatedAt.IsZero() {
+		finalUpdatedAt = time.Now()
+	}
+
+	record, err := s.repo.GetMovieStatus(userID, tmdbMovieID)
+	if err == nil && record != nil {
+		// On considère que c'est un "nouveau visionnage" SEULEMENT SI :
+		// - Le film passe en "watched" pour la toute première fois
+		// - OU le compteur de rewatch a augmenté
+		isNewWatch := (status == "watched" && record.Status != "watched") || (rewatchCount > record.RewatchCount)
+
+		// Si ce n'est PAS un nouveau visionnage (ex: juste un toggle favori ou un retrait),
+		if !isNewWatch {
+			finalUpdatedAt = record.UpdatedAt
+		}
+	}
+
+	return s.repo.SaveMovieStatus(userID, tmdbMovieID, status, isFavorite, rewatchCount, finalUpdatedAt)
 }
 
 // 3. LOGIQUE MÉTIER : Supprime un film de la liste de l'utilisateur
@@ -118,6 +139,7 @@ func (s *MovieService) GetMovieDetailsForUser(userID string, movieID int) (*Movi
 	// 3. On initialise notre réponse personnalisée avec les données TMDB et des valeurs par défaut
 	customMovie := &MovieCustomResponse{
 		TMDBMovieResult: tmdbMovie,
+		MediaType:       "movie",
 	}
 
 	// 4. On interroge notre base de données locale pour voir si l'utilisateur a déjà interagi avec ce film
@@ -133,6 +155,9 @@ func (s *MovieService) GetMovieDetailsForUser(userID string, movieID int) (*Movi
 		customMovie.StatusLocal = record.Status
 		customMovie.IsFavorite = record.IsFavorite
 		customMovie.RewatchCount = record.RewatchCount
+
+		customMovie.CreatedAt = record.CreatedAt
+		customMovie.UpdatedAt = record.UpdatedAt
 	}
 
 	return customMovie, nil

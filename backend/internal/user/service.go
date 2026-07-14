@@ -80,19 +80,13 @@ func (s *UserService) GetLatestWatchedTV(userID string, page, limit int) ([]tv.S
 func (s *UserService) GetMovieStats(userID string) (MovieStats, error) {
 	var stats MovieStats
 
-	watchedRecords, err := s.repo.GetLatestWatchedMovies(userID, 0, 0)
+	totalViews, totalMinutes, err := s.repo.GetMovieStatsCalculated(userID)
 	if err != nil {
 		return stats, err
 	}
 
-	// 2. On boucle sans appels externes !
-	for _, record := range watchedRecords {
-		totalViews := 1 + record.RewatchCount
-		stats.TotalWatched += totalViews
-
-		// Estimation de la durée (105 min/film en moyenne)
-		stats.TotalRuntimeMinutes += (105 * totalViews)
-	}
+	stats.TotalWatched = totalViews
+	stats.TotalRuntimeMinutes = totalMinutes
 
 	return stats, nil
 }
@@ -100,18 +94,13 @@ func (s *UserService) GetMovieStats(userID string) (MovieStats, error) {
 func (s *UserService) GetTVStats(userID string) (TVStats, error) {
 	var stats TVStats
 
-	episodes, err := s.tvRepo.GetAllWatchedEpisodes(userID)
+	totalEpisodes, totalMinutes, err := s.tvRepo.GetTVStatsCalculated(userID)
 	if err != nil {
 		return stats, err
 	}
 
-	for _, ep := range episodes {
-		count := 1 + ep.RewatchCount
-		stats.TotalEpisodesWatched += count
-
-		// Estimation de la durée (42min/épisode en moyenne)
-		stats.TotalRuntimeMinutes += (42 * count)
-	}
+	stats.TotalEpisodesWatched = totalEpisodes
+	stats.TotalRuntimeMinutes = totalMinutes
 
 	return stats, nil
 }

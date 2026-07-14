@@ -29,6 +29,10 @@ func (s *TVService) EnrichSeriesRecords(userID string, records []SeriesRecord) (
 			enrichedResults[index] = SeriesCustomResponse{
 				TMDBSeriesResult: tmdbSeries,
 				MediaType:        "tv",
+				StatusLocal:      rec.Status,
+				IsFavorite:       rec.IsFavorite,
+				CreatedAt:        rec.CreatedAt,
+				UpdatedAt:        rec.UpdatedAt,
 			}
 		}(i, record)
 	}

@@ -60,3 +60,16 @@ func (r *Repository) GetLatestWatchedMovies(userID string, limit, offset int) ([
 	}
 	return records, nil
 }
+
+func (r *Repository) GetMovieStatsCalculated(userID string) (int, int, error) {
+	// 1 + rewatch_count correspond à la vue initiale + les rewatchs
+	query := `
+        SELECT COALESCE(SUM(1 + rewatch_count), 0), 
+               COALESCE(SUM(105 * (1 + rewatch_count)), 0)
+        FROM user_movies 
+        WHERE user_id = $1 AND status = 'watched'`
+
+	var totalViews, totalMinutes int
+	err := r.db.QueryRow(query, userID).Scan(&totalViews, &totalMinutes)
+	return totalViews, totalMinutes, err
+}

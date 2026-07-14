@@ -3,6 +3,8 @@ import { useApi } from '../../context/ApiContext';
 import { useCallback, useRef, useState } from 'react';
 import { MediaCard } from '../../components/MediaCard';
 import { useLocalStorage } from '../../utils/useLocalStorage';
+import { triggerVibration } from '../../utils/haptics';
+import { Grid, List } from 'lucide-react';
 
 interface WatchlistViewProps {
     mediaType: 'movie' | 'tv';
@@ -106,10 +108,16 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                     <h1 className="text-2xl font-bold tracking-tight">
                         {mediaType === 'movie' ? 'Mes Films' : 'Mes Séries'}
                     </h1>
-                    <div className="flex align-items-center bg-zinc-900 rounded-lg p-1 border border-zinc-800">
-                        <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-zinc-800 text-purple-500' : 'text-zinc-500'}`}><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg></button>
-                        <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md ${viewMode === 'list' ? 'bg-zinc-800 text-purple-500' : 'text-zinc-500'}`}><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg></button>
-                    </div>
+                    <button
+                        onClick={() => {
+                            triggerVibration([10]);
+                            setViewMode(prev => prev === 'card' ? 'list' : 'card');
+                        }}
+                        className="p-2 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                        aria-label="Changer la vue"
+                    >
+                        {viewMode === 'card' ? <List size={20} /> : <Grid size={20} />}
+                    </button>
                 </div>
 
                 {/* Tabs Films vs Sections Séries */}

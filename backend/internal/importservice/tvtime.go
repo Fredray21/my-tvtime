@@ -391,6 +391,8 @@ func (im *TVTimeImporter) parseWatchlist(r io.Reader, tvShowsMap map[int]*TVImpo
 				Episodes:   []WatchedEpisode{},
 				Watchlist:  true,
 				IsFavorite: isFavorited,
+				CreatedAt:  time.Now(),
+				UpdatedAt:  time.Now(),
 			}
 		}
 	}
@@ -433,7 +435,6 @@ func (im *TVTimeImporter) analyzeSeriesWithProgress(taskID string, r io.Reader, 
 			seriesName = record[idxName]
 		}
 
-		// SÉCURITÉ : Vérifie la validité des numéros de saison et d'épisode
 		seasonStr := ""
 		episodeStr := ""
 		if idxS, ok := colMap["season_number"]; ok {
@@ -452,18 +453,41 @@ func (im *TVTimeImporter) analyzeSeriesWithProgress(taskID string, r io.Reader, 
 		season, _ := strconv.Atoi(seasonStr)
 		episode, _ := strconv.Atoi(episodeStr)
 
-		// Récupération du rewatch_count depuis l'export
-		rewatchCount := 0
-		if idxRW, ok := colMap["rewatch_count"]; ok && record[idxRW] != "" {
-			if val, err := strconv.ParseFloat(record[idxRW], 64); err == nil {
-				rewatchCount = int(val)
+		currentLineRewatch := 0
+
+		if idxKey, ok := colMap["key"]; ok && record[idxKey] != "" {
+			keyStr := record[idxKey]
+			if strings.HasPrefix(keyStr, "rewatch-episode-") {
+				parts := strings.Split(keyStr, "-")
+				if len(parts) > 0 {
+					lastPart := parts[len(parts)-1] // On prend le chiffre tout à la fin
+					if val, err := strconv.Atoi(lastPart); err == nil {
+						currentLineRewatch = val
+					}
+				}
 			}
 		}
 
-		createdAtStr := record[colMap["created_at"]]
-		watchedAt, err := time.Parse("2006-01-02 15:04:05", createdAtStr)
-		if err != nil {
-			watchedAt = time.Now()
+		if idxRW, ok := colMap["rewatch_count"]; ok && record[idxRW] != "" {
+			if val, err := strconv.ParseFloat(record[idxRW], 64); err == nil {
+				if int(val) > currentLineRewatch {
+					currentLineRewatch = int(val)
+				}
+			}
+		}
+
+		createdAtStr := ""
+		if idx, ok := colMap["created_at"]; ok && len(record) > idx {
+			createdAtStr = strings.TrimSpace(record[idx])
+		}
+
+		watchedAt := time.Now()
+		if createdAtStr != "" {
+			if parsedDate, err := time.Parse("2006-01-02 15:04:05", createdAtStr); err == nil {
+				watchedAt = parsedDate
+			} else if parsedDate, err = time.Parse("2006-01-02", createdAtStr); err == nil {
+				watchedAt = parsedDate
+			}
 		}
 
 		// Si on a déjà determiné que la série est introuvable, on passe
@@ -473,8 +497,6 @@ func (im *TVTimeImporter) analyzeSeriesWithProgress(taskID string, r io.Reader, 
 
 		// 1. TENTATIVE N°1 : Recherche précise par l'ID TVDB
 		tmdbID, err := im.GetTMDBIDFromTVDB(tvdbID)
-
-		// 2. 🟢 TENTATIVE N°2 (REPLI) : Si l'ID TVDB échoue, on cherche par le nom
 		if err != nil {
 			if seriesName != "" {
 				tmdbID, err = im.SearchTVShowTMDB(seriesName)
@@ -494,20 +516,35 @@ func (im *TVTimeImporter) analyzeSeriesWithProgress(taskID string, r io.Reader, 
 				TMDBID:     tmdbID,
 				Episodes:   []WatchedEpisode{},
 				Watchlist:  false,
-				IsFavorite: false, // Initialisé à false par défaut pour les épisodes vus
+				IsFavorite: false,
+				CreatedAt:  watchedAt,
+				UpdatedAt:  watchedAt,
 			}
 			tvShowsMap[tmdbID] = item
+		} else {
+			if item.Watchlist {
+				item.CreatedAt = watchedAt
+				item.UpdatedAt = watchedAt
+			} else {
+				// Épisodes suivants : on recule le début ou on avance la fin
+				if watchedAt.Before(item.CreatedAt) {
+					item.CreatedAt = watchedAt
+				}
+				if watchedAt.After(item.UpdatedAt) {
+					item.UpdatedAt = watchedAt
+				}
+			}
 		}
 
-		// Un épisode valide a été trouvé, on enlève le statut "uniquement Watchlist"
 		item.Watchlist = false
 
 		// Déduplication & Addition des rewatchs
 		isDuplicate := false
 		for idx, ep := range item.Episodes {
 			if ep.Season == season && ep.Episode == episode {
-				// Si doublon trouvé, on additionne le rewatch count global + 1 pour l'action dupliquée
-				item.Episodes[idx].RewatchCount += rewatchCount + 1
+				if currentLineRewatch > ep.RewatchCount {
+					item.Episodes[idx].RewatchCount = currentLineRewatch
+				}
 				isDuplicate = true
 				break
 			}
@@ -517,7 +554,7 @@ func (im *TVTimeImporter) analyzeSeriesWithProgress(taskID string, r io.Reader, 
 			item.Episodes = append(item.Episodes, WatchedEpisode{
 				Season:       season,
 				Episode:      episode,
-				RewatchCount: rewatchCount,
+				RewatchCount: currentLineRewatch,
 				WatchedAt:    watchedAt,
 			})
 		}
@@ -734,9 +771,9 @@ func (im *TVTimeImporter) ExecuteDatabaseImport(taskID string, userID string, da
 		}
 
 		if tvItem.Watchlist {
-			_ = tvService.UpdateSeriesStatus(userID, tvItem.TMDBID, "watchlist", tvItem.IsFavorite)
+			_ = tvService.UpdateSeriesStatus(userID, tvItem.TMDBID, "watchlist", tvItem.IsFavorite, tvItem.CreatedAt, tvItem.UpdatedAt)
 		} else {
-			_ = tvService.UpdateSeriesStatus(userID, tvItem.TMDBID, "watchlist", tvItem.IsFavorite)
+			_ = tvService.UpdateSeriesStatus(userID, tvItem.TMDBID, "watchlist", tvItem.IsFavorite, tvItem.CreatedAt, tvItem.UpdatedAt)
 
 			// Épisodes vus
 			for _, ep := range tvItem.Episodes {

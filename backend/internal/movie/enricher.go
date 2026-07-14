@@ -30,6 +30,11 @@ func (s *MovieService) EnrichMovieRecords(userID string, records []MovieRecord) 
 			enrichedResults[index] = MovieCustomResponse{
 				TMDBMovieResult: tmdbMovie,
 				MediaType:       "movie",
+				StatusLocal:     rec.Status,
+				IsFavorite:      rec.IsFavorite,
+				RewatchCount:    rec.RewatchCount,
+				CreatedAt:       rec.CreatedAt,
+				UpdatedAt:       rec.UpdatedAt,
 			}
 		}(i, record)
 	}

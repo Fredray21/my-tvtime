@@ -60,6 +60,8 @@ export interface MediaCustomResponse extends TMDBMediaResult {
     is_favorite: boolean;
     rewatch_count: number;
     media_type?: 'movie' | 'tv';
+    created_at?: string;
+    updated_at?: string;
 }
 
 export interface WatchlistPaginatedResponse {

@@ -120,7 +120,7 @@ func (h *Handler) HandlerUpdateStatus(c *gin.Context) {
 		return
 	}
 
-	err := h.service.UpdateSeriesStatus(userID.(string), req.TMDBSeriesID, req.StatusLocal, req.IsFavorite)
+	err := h.service.UpdateSeriesStatus(userID.(string), req.TMDBSeriesID, req.StatusLocal, req.IsFavorite, time.Now(), time.Now())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -165,7 +165,7 @@ func (h *Handler) HandlerGetFavorites(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"results": results})
+	c.JSON(http.StatusOK, results)
 }
 
 // DELETE /api/tv/:id/season/:season/episode/:episode (Annuler le visionnage d'un épisode)

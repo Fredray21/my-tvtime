@@ -38,14 +38,14 @@ func (r *Repository) SaveMovieStatus(userID string, tmdbMovieID int, status stri
 // 2. READ : Récupère le statut d'un film spécifique pour un utilisateur donné
 func (r *Repository) GetMovieStatus(userID string, tmdbMovieID int) (*MovieRecord, error) {
 	query := `
-		SELECT id, user_id, tmdb_movie_id, status, is_favorite, rewatch_count 
+		SELECT id, user_id, tmdb_movie_id, status, is_favorite, rewatch_count, created_at, updated_at 
 		FROM user_movies 
 		WHERE user_id = $1 AND tmdb_movie_id = $2
 	`
 	var movie MovieRecord
 	err := r.db.QueryRow(query, userID, tmdbMovieID).Scan(
 		&movie.ID, &movie.UserID, &movie.TMDBMovieID,
-		&movie.Status, &movie.IsFavorite, &movie.RewatchCount,
+		&movie.Status, &movie.IsFavorite, &movie.RewatchCount, &movie.CreatedAt, &movie.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -66,7 +66,7 @@ func (r *Repository) GetMoviesByStatusRecords(userID string, status string, page
 
 	// On ajoute LIMIT et OFFSET à la requête SQL
 	query := `
-		SELECT tmdb_movie_id, status, is_favorite, rewatch_count 
+		SELECT tmdb_movie_id, status, is_favorite, rewatch_count, created_at, updated_at 
 		FROM user_movies 
 		WHERE user_id = $1 AND status = $2
 		ORDER BY updated_at DESC
@@ -82,7 +82,7 @@ func (r *Repository) GetMoviesByStatusRecords(userID string, status string, page
 	var records []MovieRecord
 	for rows.Next() {
 		var rec MovieRecord
-		err := rows.Scan(&rec.TMDBMovieID, &rec.Status, &rec.IsFavorite, &rec.RewatchCount)
+		err := rows.Scan(&rec.TMDBMovieID, &rec.Status, &rec.IsFavorite, &rec.RewatchCount, &rec.CreatedAt, &rec.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +94,7 @@ func (r *Repository) GetMoviesByStatusRecords(userID string, status string, page
 // GetFavoriteMoviesRecords récupère tous les films marqués en favori par l'utilisateur
 func (r *Repository) GetFavoriteMoviesRecords(userID string) ([]MovieRecord, error) {
 	query := `
-		SELECT id, user_id, tmdb_movie_id, status, is_favorite, rewatch_count 
+		SELECT id, user_id, tmdb_movie_id, status, is_favorite, rewatch_count, created_at, updated_at 
 		FROM user_movies 
 		WHERE user_id = $1 AND is_favorite = true
 		ORDER BY updated_at DESC
@@ -108,7 +108,7 @@ func (r *Repository) GetFavoriteMoviesRecords(userID string) ([]MovieRecord, err
 	var records []MovieRecord
 	for rows.Next() {
 		var m MovieRecord
-		if err := rows.Scan(&m.ID, &m.UserID, &m.TMDBMovieID, &m.Status, &m.IsFavorite, &m.RewatchCount); err != nil {
+		if err := rows.Scan(&m.ID, &m.UserID, &m.TMDBMovieID, &m.Status, &m.IsFavorite, &m.RewatchCount, &m.CreatedAt, &m.UpdatedAt); err != nil {
 			return nil, err
 		}
 		records = append(records, m)

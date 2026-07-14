@@ -5,9 +5,11 @@ import { AppLayout } from './components/AppLayout';
 import { SearchView } from './features/search/SearchView';
 import { MovieDetailsView } from './features/movie/MovieDetailsView';
 import { ProfileView } from './features/profile/ProfileView';
-import { WatchedView } from './features/watched/WatchedView';
 import { WatchlistView } from './features/watchlist/WatchlistView';
 import { TVDetailsView } from './features/tv/TVDetailsView';
+import { MediaGridPage } from './components/MediaGridPage';
+import { Clock, Heart } from 'lucide-react';
+import { useApi } from './context/ApiContext';
 
 // 1. Récupération de la clé Clerk depuis les variables d'environnement Vite
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -25,9 +27,11 @@ const queryClient = new QueryClient({
     },
 });
 
+
 export const App = () => {
+    const api = useApi();
+
     return (
-        // 2. On englobe toute l'app avec le ClerkProvider
         <QueryClientProvider client={queryClient}>
             <BrowserRouter>
 
@@ -48,12 +52,58 @@ export const App = () => {
                             <Route path="/tv" element={<WatchlistView mediaType="tv" />} />
 
                             <Route path="/search" element={<SearchView />} />
-                            
+
                             <Route path="/movie/:id" element={<MovieDetailsView />} />
                             <Route path="/tv/:id" element={<TVDetailsView />} />
 
-                            <Route path='/watched/movies' element={<WatchedView mediaType={'movie'} />} />
-                            <Route path='/watched/tv' element={<WatchedView mediaType={'tv'} />} />
+                            <Route path="/favorites/movies" element={
+                                <MediaGridPage
+                                    title="Films Coups de cœur"
+                                    icon={Heart}
+                                    mediaType="movie"
+                                    queryKey={['favorites', 'movie', 'grid']}
+                                    queryFn={() => api.media.getFavorites('movie')}
+                                    emptyTitle="Aucun coup de cœur"
+                                    emptyDescription="Tu n'as pas encore ajouté de film à tes favoris."
+                                />
+                            } />
+
+                            <Route path="/favorites/tv" element={
+                                <MediaGridPage
+                                    title="Séries Coups de cœur"
+                                    icon={Heart}
+                                    mediaType="tv"
+                                    queryKey={['favorites', 'tv', 'grid']}
+                                    queryFn={() => api.media.getFavorites('tv')}
+                                    emptyTitle="Aucun coup de cœur"
+                                    emptyDescription="Tu n'as pas encore ajouté de série à tes favoris."
+                                />
+                            } />
+
+                            {/* --- ROUTES HISTORIQUE (LATEST) --- */}
+                            <Route path="/watched/movies" element={
+                                <MediaGridPage
+                                    title="Derniers films vus"
+                                    icon={Clock}
+                                    mediaType="movie"
+                                    queryKey={['latest', 'movie', 'infinite']}
+                                    queryFn={({ pageParam }) => api.user.getLatestMedias('movie', pageParam)}
+                                    emptyTitle="Historique vide"
+                                    emptyDescription="Tu n'as pas encore regardé de film."
+                                />
+                            } />
+
+                            <Route path="/watched/tv" element={
+                                <MediaGridPage
+                                    title="Dernières séries vues"
+                                    icon={Clock}
+                                    mediaType="tv"
+                                    queryKey={['latest', 'tv', 'infinite']}
+                                    queryFn={({ pageParam }) => api.user.getLatestMedias('tv', pageParam)}
+                                    emptyTitle="Historique vide"
+                                    emptyDescription="Tu n'as pas encore regardé d'épisode."
+                                />
+                            } />
 
                             <Route path="/profile" element={<ProfileView />} />
                         </Route>

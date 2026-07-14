@@ -31,6 +31,8 @@ type TVImportItem struct {
 	Episodes   []WatchedEpisode `json:"episodes"`
 	Watchlist  bool             `json:"watchlist"`
 	IsFavorite bool             `json:"is_favorite"`
+	CreatedAt  time.Time        `json:"created_at"`
+	UpdatedAt  time.Time        `json:"updated_at"`
 }
 
 type WatchedEpisode struct {

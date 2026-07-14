@@ -131,6 +131,18 @@ export const MovieDetailsView = () => {
                     <span className="bg-zinc-800/80 px-2 py-1 rounded-md text-zinc-200">{year}</span>
                     {formattedRuntime && <span>⏱ {formattedRuntime}</span>}
                     {movie.vote_average !== undefined && movie.vote_average > 0 && <span className="text-amber-400">⭐️ {movie.vote_average.toFixed(1)}/10</span>}
+
+                    {/* Dates de visionnage */}
+                    {movie.status_local === 'watched' && movie.created_at && (
+                        <span className="ml-auto bg-zinc-900 border border-zinc-800 px-2 py-1 rounded text-zinc-400">
+                            1er vu : {new Date(movie.created_at).toLocaleDateString('fr-FR')}
+                        </span>
+                    )}
+                    {movie.status_local === 'watched' && movie.rewatch_count > 0 && movie.updated_at && (
+                        <span className="bg-zinc-900 border border-zinc-800 px-2 py-1 rounded text-zinc-400">
+                            Revu : {new Date(movie.updated_at).toLocaleDateString('fr-FR')}
+                        </span>
+                    )}
                 </div>
 
                 {/* Boutons d'Action Rapide */}
@@ -139,12 +151,11 @@ export const MovieDetailsView = () => {
                         <>
                             {/* Bouton État : Déjà vu (Clic pour passer en not_tracked) */}
                             <button
-                                onClick={() => 
-                                {
+                                onClick={() => {
                                     triggerVibration([50, 80, 20]);
                                     mutation.mutate({ newStatus: 'not_tracked', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
                                 }}
-                                    
+
                                 className="flex-[2] py-3 rounded-xl font-bold text-sm bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/30 transition-all"
                             >
                                 ✅ Déjà vu
@@ -154,16 +165,15 @@ export const MovieDetailsView = () => {
                             <div className="flex items-center bg-zinc-900 rounded-xl border border-zinc-700 p-1">
                                 {/* Bouton Moins */}
                                 <button
-                                    onClick={() => 
-                                    {
-                                        triggerVibration();   
+                                    onClick={() => {
+                                        triggerVibration();
                                         mutation.mutate({
                                             newStatus: 'watched',
                                             isFavorite: movie.is_favorite,
                                             rewatch_count: Math.max(0, (movie.rewatch_count || 0) - 1)
                                         })
                                     }
-                                }
+                                    }
                                     disabled={(movie.rewatch_count || 0) <= 0}
                                     className="w-10 h-full flex items-center justify-center text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition"
                                 >
@@ -172,13 +182,12 @@ export const MovieDetailsView = () => {
 
                                 {/* Chiffre */}
                                 <span className="w-15 text-center font-bold text-sm font-mono text-white">
-                                    x{movie.rewatch_count +1 || 1}
+                                    x{movie.rewatch_count + 1 || 1}
                                 </span>
 
                                 {/* Bouton Plus */}
                                 <button
-                                    onClick={() => 
-                                    {
+                                    onClick={() => {
                                         triggerVibration();
                                         mutation.mutate({
                                             newStatus: 'watched',
@@ -186,7 +195,7 @@ export const MovieDetailsView = () => {
                                             rewatch_count: (movie.rewatch_count || 0) + 1
                                         })
                                     }
-                                }
+                                    }
                                     className="w-10 h-full flex items-center justify-center text-zinc-400 hover:text-white transition"
                                 >
                                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1V11M1 6H11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
@@ -199,8 +208,8 @@ export const MovieDetailsView = () => {
                             <button
                                 onClick={() => {
                                     const newStatus = movie.status_local === 'watchlist' ? 'not_tracked' : 'watchlist'
-                                    
-                                    if(newStatus === 'watchlist') {
+
+                                    if (newStatus === 'watchlist') {
                                         triggerVibration([20, 80, 50]);
                                     } else {
                                         triggerVibration([50, 80, 20]);
@@ -208,7 +217,7 @@ export const MovieDetailsView = () => {
 
                                     mutation.mutate({ newStatus: newStatus, isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
                                 }}
-                                    
+
                                 className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${movie.status_local === 'watchlist'
                                     ? 'bg-purple-500 text-black hover:bg-purple-400'
                                     : 'bg-zinc-800 text-white hover:bg-zinc-700'
@@ -218,8 +227,7 @@ export const MovieDetailsView = () => {
                             </button>
 
                             <button
-                                onClick={() => 
-                                {
+                                onClick={() => {
                                     triggerVibration([20, 80, 50]);
                                     mutation.mutate({ newStatus: 'watched', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
                                 }}
@@ -230,6 +238,20 @@ export const MovieDetailsView = () => {
                         </>
                     )}
                 </div>
+
+                {/* Genres */}
+                {movie.genres && movie.genres.length > 0 && (
+                    <div className="mb-6">
+                        <h2 className="text-sm font-bold text-zinc-100 uppercase tracking-wider mb-3">Genres</h2>
+                        <div className="flex flex-wrap gap-2">
+                            {movie.genres.map(genre => (
+                                <span key={genre.id} className="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full text-xs font-medium text-zinc-300">
+                                    {genre.name}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Tagline & Synopsis */}
                 {movie.tagline && (
@@ -255,20 +277,6 @@ export const MovieDetailsView = () => {
                         <p className="text-zinc-200 text-sm font-medium">{formatCurrency(movie.revenue)}</p>
                     </div>
                 </div>
-
-                {/* Genres */}
-                {movie.genres && movie.genres.length > 0 && (
-                    <div className="mb-6">
-                        <h2 className="text-sm font-bold text-zinc-100 uppercase tracking-wider mb-3">Genres</h2>
-                        <div className="flex flex-wrap gap-2">
-                            {movie.genres.map(genre => (
-                                <span key={genre.id} className="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full text-xs font-medium text-zinc-300">
-                                    {genre.name}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                )}
 
                 {/* Studios de Production */}
                 {movie.production_companies && movie.production_companies.length > 0 && (

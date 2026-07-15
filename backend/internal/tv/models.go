@@ -1,6 +1,10 @@
 package tv
 
-import "time"
+import (
+	"time"
+
+	"github.com/lib/pq"
+)
 
 type UserSeries struct {
 	ID           string `json:"id"`
@@ -22,6 +26,26 @@ type UserEpisode struct {
 	LastWatchedAt time.Time `json:"last_watched_at"`
 }
 
+type SeriesIdentifier interface {
+	GetTMDBID() int
+	GetStatus() string
+	GetIsFavorite() bool
+	GetCreatedAt() time.Time
+	GetUpdatedAt() time.Time
+}
+
+func (r SeriesRecord) GetTMDBID() int          { return r.TMDBSeriesID }
+func (r SeriesRecord) GetStatus() string       { return r.Status }
+func (r SeriesRecord) GetIsFavorite() bool     { return r.IsFavorite }
+func (r SeriesRecord) GetCreatedAt() time.Time { return r.CreatedAt }
+func (r SeriesRecord) GetUpdatedAt() time.Time { return r.UpdatedAt }
+
+func (r SeriesUpcomingRecord) GetTMDBID() int          { return r.TMDBSeriesID }
+func (r SeriesUpcomingRecord) GetStatus() string       { return r.Status }
+func (r SeriesUpcomingRecord) GetIsFavorite() bool     { return r.IsFavorite }
+func (r SeriesUpcomingRecord) GetCreatedAt() time.Time { return r.CreatedAt }
+func (r SeriesUpcomingRecord) GetUpdatedAt() time.Time { return r.UpdatedAt }
+
 type SeriesRecord struct {
 	ID           string
 	UserID       string
@@ -30,6 +54,18 @@ type SeriesRecord struct {
 	IsFavorite   bool
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+}
+
+type SeriesUpcomingRecord struct {
+	TMDBSeriesID int
+	Status       string
+	IsFavorite   bool
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+
+	AirDate  time.Time
+	Episodes pq.Int64Array
+	Seasons  pq.Int64Array
 }
 
 type EpisodeRecord struct {

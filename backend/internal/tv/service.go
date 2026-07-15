@@ -172,7 +172,6 @@ func NewService(repo *Repository, tmdbClient *tmdb.Client) *TVService {
 
 // WatchEpisode gère le visionnage d'un épisode et met à jour automatiquement l'état de la série.
 func (s *TVService) WatchEpisode(userID string, tmdbSeriesID int, seasonNumber int, episodeNumber int, watchedAt time.Time, serieIsFavorite bool) error {
-	// 1. SÉCURITÉ CLÉ ÉTRANGÈRE COMPOSITE
 	// On vérifie si la série existe déjà dans la table user_series
 	record, err := s.repo.GetSeriesStatus(userID, tmdbSeriesID)
 	if err != nil {
@@ -188,14 +187,22 @@ func (s *TVService) WatchEpisode(userID string, tmdbSeriesID int, seasonNumber i
 		}
 	}
 
-	// 2. ENREGISTREMENT DE L'ÉPISODE
 	// Insère l'épisode ou incrémente le rewatch_count s'il existait déjà
 	err = s.repo.SaveEpisode(userID, tmdbSeriesID, seasonNumber, episodeNumber, watchedAt)
 	if err != nil {
 		return err
 	}
 
-	// 3. SYNCHRONISATION ET CALCUL DU STATUT DYNAMIQUE
+	go func() {
+		tmdbBytes, err := s.tmdbClient.GetEpisodeDetails(tmdbSeriesID, seasonNumber, episodeNumber)
+		if err == nil {
+			var tmdbEp TMDBEpisodeShort
+			if json.Unmarshal(tmdbBytes, &tmdbEp) == nil {
+				_ = s.repo.SaveEpisodeMetadata(tmdbSeriesID, seasonNumber, episodeNumber, tmdbEp.Runtime, tmdbEp.AirDate)
+			}
+		}
+	}()
+
 	return s.SyncSeriesStatus(userID, tmdbSeriesID)
 }
 
@@ -317,6 +324,19 @@ func (s *TVService) UpdateSeriesStatus(userID string, tmdbSeriesID int, status s
 		updatedAt = record.UpdatedAt
 	}
 
+	go func() {
+		tmdbBytes, err := s.tmdbClient.GetSeriesDetails(tmdbSeriesID)
+		if err == nil {
+			var tmdbSeries TMDBSeriesResult
+			if json.Unmarshal(tmdbBytes, &tmdbSeries) == nil {
+				if tmdbSeries.NextEpisodeToAir != nil {
+					nextEp := tmdbSeries.NextEpisodeToAir
+					_ = s.repo.SaveEpisodeMetadata(tmdbSeriesID, nextEp.SeasonNumber, nextEp.EpisodeNumber, nextEp.Runtime, nextEp.AirDate)
+				}
+			}
+		}
+	}()
+
 	return s.repo.SaveSeriesStatus(userID, tmdbSeriesID, status, isFavorite, createdAt, updatedAt)
 }
 
@@ -331,7 +351,13 @@ func (s *TVService) GetFavoritesForUser(userID string) ([]SeriesCustomResponse, 
 	if err != nil {
 		return nil, err
 	}
-	return s.EnrichSeriesRecords(userID, records)
+
+	identifiers := make([]SeriesIdentifier, len(records))
+	for i := range records {
+		identifiers[i] = records[i]
+	}
+
+	return s.EnrichSeriesRecords(userID, identifiers)
 }
 
 // RemoveEpisode annule un visionnage et resynchronise le statut global de la série
@@ -365,25 +391,27 @@ func (s *TVService) GetSimilarSeries(userID string, seriesID int) ([]SeriesCusto
 
 // GetSeasonDetailsForUser fusionne la saison TMDB avec les épisodes vus par l'utilisateur
 func (s *TVService) GetSeasonDetailsForUser(userID string, seriesID int, seasonNumber int) (*SeasonCustomResponse, error) {
-	// 1. On récupère le JSON brut depuis TMDB
 	tmdbBytes, err := s.tmdbClient.GetSeasonDetails(seriesID, seasonNumber)
 	if err != nil {
 		return nil, fmt.Errorf("erreur TMDB saison: %w", err)
 	}
 
-	// 2. On décode le JSON
 	var tmdbSeason TMDBSeasonDetail
 	if err := json.Unmarshal(tmdbBytes, &tmdbSeason); err != nil {
 		return nil, fmt.Errorf("erreur décodage TMDB saison: %w", err)
 	}
 
-	// 3. Récupération de tous les épisodes vus de cette série en base locale
+	go func() {
+		for _, ep := range tmdbSeason.Episodes {
+			_ = s.repo.SaveEpisodeMetadata(seriesID, ep.SeasonNumber, ep.EpisodeNumber, ep.Runtime, ep.AirDate)
+		}
+	}()
+
 	watchedEps, err := s.repo.GetWatchedEpisodesForSeries(userID, seriesID)
 	if err != nil {
 		return nil, fmt.Errorf("erreur récupération épisodes vus: %w", err)
 	}
 
-	// 4. On crée une map pour trouver instantanément si un épisode est vu (pour éviter de boucler inutilement)
 	watchedMap := make(map[int]EpisodeRecord)
 	for _, ep := range watchedEps {
 		if ep.SeasonNumber == seasonNumber {
@@ -391,7 +419,6 @@ func (s *TVService) GetSeasonDetailsForUser(userID string, seriesID int, seasonN
 		}
 	}
 
-	// 5. On enrichit chaque épisode de la saison avec le statut 'vu'
 	enrichedEpisodes := make([]EpisodeCustomResponse, 0)
 	for _, tmdbEp := range tmdbSeason.Episodes {
 		customEp := EpisodeCustomResponse{
@@ -406,7 +433,6 @@ func (s *TVService) GetSeasonDetailsForUser(userID string, seriesID int, seasonN
 		enrichedEpisodes = append(enrichedEpisodes, customEp)
 	}
 
-	// 6. On retourne la saison complète enrichie
 	return &SeasonCustomResponse{
 		TMDBSeasonDetail: tmdbSeason,
 		Episodes:         enrichedEpisodes,
@@ -425,7 +451,12 @@ func (s *TVService) GetUserSeriesOrderByStatus(userID string, page int) ([]Serie
 		return nil, err
 	}
 
-	return s.EnrichSeriesRecords(userID, records)
+	identifiers := make([]SeriesIdentifier, len(records))
+	for i := range records {
+		identifiers[i] = records[i]
+	}
+
+	return s.EnrichSeriesRecords(userID, identifiers)
 }
 
 func (s *TVService) WatchAllEpisodesInSeason(userID string, tmdbSeriesID, seasonNum int) error {
@@ -460,4 +491,19 @@ func (s *TVService) GetEpisodeDetails(tmdbSeriesID, seasonNum, epNum int) (*Epis
 		TMDBEpisodeShort: tmdbEp,
 		IsWatched:        true,
 	}, nil
+}
+
+func (s *TVService) GetUpcomingSeries(userID string, page int) ([]SeriesCustomResponse, error) {
+	limit := 20
+	records, err := s.repo.GetUpcomingSeriesRecords(userID, page, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	identifiers := make([]SeriesIdentifier, len(records))
+	for i := range records {
+		identifiers[i] = records[i]
+	}
+
+	return s.EnrichSeriesRecords(userID, identifiers)
 }

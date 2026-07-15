@@ -185,5 +185,15 @@ export const createMediaApi = (api: AxiosInstance) => ({
             tmdb_id: seriesId,
             season_number: seasonNumber
         });
+    },
+
+    getUpcomingMovies: async (page: number): Promise<WatchlistPaginatedResponse> => {
+        const response = await api.get(`/movies/upcoming?page=${page}`);
+        return response.data;
+    },
+
+    getUpcomingSeries: async (page: number): Promise<WatchlistPaginatedResponse> => {
+        const response = await api.get(`/tvs/upcoming?page=${page}`);
+        return response.data;
     }
 });

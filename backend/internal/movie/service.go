@@ -92,6 +92,16 @@ func (s *MovieService) UpdateMovieStatus(userID string, tmdbMovieID int, status 
 		}
 	}
 
+	go func() {
+		tmdbBytes, err := s.tmdbClient.GetMovieDetails(tmdbMovieID)
+		if err == nil {
+			var tmdbMovie TMDBMovieResult
+			if json.Unmarshal(tmdbBytes, &tmdbMovie) == nil {
+				_ = s.repo.SaveMovieMetadata(tmdbMovieID, tmdbMovie.Title, tmdbMovie.ReleaseDate, tmdbMovie.Runtime)
+			}
+		}
+	}()
+
 	return s.repo.SaveMovieStatus(userID, tmdbMovieID, status, isFavorite, rewatchCount, finalUpdatedAt)
 }
 
@@ -124,25 +134,25 @@ func (s *MovieService) GetFavoritesForUser(userID string) ([]MovieCustomResponse
 
 // GetMovieDetailsForUser récupère la fiche complète d'un film depuis TMDB et y injecte le statut local de l'utilisateur
 func (s *MovieService) GetMovieDetailsForUser(userID string, movieID int) (*MovieCustomResponse, error) {
-	// 1. On appelle le client TMDB pour récupérer les détails complets en bytes
 	tmdbBytes, err := s.tmdbClient.GetMovieDetails(movieID)
 	if err != nil {
 		return nil, fmt.Errorf("erreur lors de la récupération des détails TMDB: %w", err)
 	}
 
-	// 2. On décode le JSON de TMDB dans notre structure de film complète
 	var tmdbMovie TMDBMovieResult
 	if err := json.Unmarshal(tmdbBytes, &tmdbMovie); err != nil {
 		return nil, fmt.Errorf("échec de la désérialisation (unmarshal) des détails TMDB: %w", err)
 	}
 
-	// 3. On initialise notre réponse personnalisée avec les données TMDB et des valeurs par défaut
+	go func() {
+		_ = s.repo.SaveMovieMetadata(movieID, tmdbMovie.Title, tmdbMovie.ReleaseDate, tmdbMovie.Runtime)
+	}()
+
 	customMovie := &MovieCustomResponse{
 		TMDBMovieResult: tmdbMovie,
 		MediaType:       "movie",
 	}
 
-	// 4. On interroge notre base de données locale pour voir si l'utilisateur a déjà interagi avec ce film
 	record, err := s.repo.GetMovieStatus(userID, movieID)
 	if err != nil {
 		// Si la BDD a un problème, on log l'erreur mais on ne bloque pas l'affichage du film
@@ -150,7 +160,6 @@ func (s *MovieService) GetMovieDetailsForUser(userID string, movieID int) (*Movi
 		return customMovie, nil
 	}
 
-	// 5. Si le film existe en BDD, on écrase les valeurs par défaut par les vraies valeurs de l'utilisateur
 	if record != nil {
 		customMovie.StatusLocal = record.Status
 		customMovie.IsFavorite = record.IsFavorite
@@ -176,4 +185,13 @@ func (s *MovieService) GetSimilarMovies(userID string, movieID int) ([]MovieCust
 	json.Unmarshal(tmdbBytes, &response)
 
 	return s.EnrichWithUserStatus(userID, response.Results)
+}
+
+func (s *MovieService) GetUpcomingMovies(userID string, page int) ([]MovieCustomResponse, error) {
+	limit := 20
+	records, err := s.repo.GetUpcomingMoviesRecords(userID, page, limit)
+	if err != nil {
+		return nil, err
+	}
+	return s.EnrichMovieRecords(userID, records)
 }

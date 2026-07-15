@@ -6,18 +6,18 @@ import (
 	"sync"
 )
 
-func (s *TVService) EnrichSeriesRecords(userID string, records []SeriesRecord) ([]SeriesCustomResponse, error) {
+func (s *TVService) EnrichSeriesRecords(userID string, records []SeriesIdentifier) ([]SeriesCustomResponse, error) {
 	enrichedResults := make([]SeriesCustomResponse, len(records))
 	var wg sync.WaitGroup
 
 	for i, record := range records {
 		wg.Add(1)
-		go func(index int, rec SeriesRecord) {
+		go func(index int, rec SeriesIdentifier) {
 			defer wg.Done()
 
-			tmdbBytes, err := s.tmdbClient.GetSeriesDetails(rec.TMDBSeriesID)
+			tmdbBytes, err := s.tmdbClient.GetSeriesDetails(rec.GetTMDBID())
 			if err != nil {
-				fmt.Printf("Erreur TMDB détails pour série %d: %v\n", rec.TMDBSeriesID, err)
+				fmt.Printf("Erreur TMDB détails pour série %d: %v\n", rec.GetTMDBID(), err)
 				return
 			}
 
@@ -29,10 +29,10 @@ func (s *TVService) EnrichSeriesRecords(userID string, records []SeriesRecord) (
 			enrichedResults[index] = SeriesCustomResponse{
 				TMDBSeriesResult: tmdbSeries,
 				MediaType:        "tv",
-				StatusLocal:      rec.Status,
-				IsFavorite:       rec.IsFavorite,
-				CreatedAt:        rec.CreatedAt,
-				UpdatedAt:        rec.UpdatedAt,
+				StatusLocal:      rec.GetStatus(),
+				IsFavorite:       rec.GetIsFavorite(),
+				CreatedAt:        rec.GetCreatedAt(),
+				UpdatedAt:        rec.GetUpdatedAt(),
 			}
 		}(i, record)
 	}

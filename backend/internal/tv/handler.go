@@ -278,3 +278,17 @@ func (h *Handler) HandlerWatchAllEpisodesInSeason(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Toute la saison a été marquée comme vue"})
 }
+
+func (h *Handler) HandlerGetUpcomingSeries(c *gin.Context) {
+	userID, _ := c.Get("clerkUserID")
+	pageStr := c.DefaultQuery("page", "1")
+	page, _ := strconv.Atoi(pageStr)
+
+	results, err := h.service.GetUpcomingSeries(userID.(string), page)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"page": page, "results": results, "has_next_page": len(results) == 20})
+}

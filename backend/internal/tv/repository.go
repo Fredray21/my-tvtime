@@ -296,12 +296,73 @@ func (r *Repository) GetLatestWatchedEpisodes(userID string, limit, offset int) 
 
 func (r *Repository) GetTVStatsCalculated(userID string) (int, int, error) {
 	query := `
-        SELECT COALESCE(SUM(1 + rewatch_count), 0), 
-               COALESCE(SUM(42 * (1 + rewatch_count)), 0)
-        FROM user_episodes 
-        WHERE user_id = $1`
+		SELECT COALESCE(SUM(1 + ue.rewatch_count), 0), 
+		       COALESCE(SUM(em.runtime * (1 + ue.rewatch_count)), 0)
+		FROM user_episodes ue
+		LEFT JOIN episode_metadata em 
+			ON ue.tmdb_series_id = em.tmdb_series_id 
+			AND ue.season_number = em.season_number 
+			AND ue.episode_number = em.episode_number
+		WHERE ue.user_id = $1`
 
 	var totalEpisodes, totalMinutes int
 	err := r.db.QueryRow(query, userID).Scan(&totalEpisodes, &totalMinutes)
 	return totalEpisodes, totalMinutes, err
+}
+
+func (r *Repository) GetUpcomingSeriesRecords(userID string, page int, limit int) ([]SeriesUpcomingRecord, error) {
+	offset := (page - 1) * limit
+
+	query := `
+		SELECT us.tmdb_series_id, us.status, us.is_favorite, em.air_date, 
+			array_agg(em.episode_number) as episodes, 
+			array_agg(em.season_number) as seasons,
+			us.created_at, us.updated_at
+		FROM user_series us
+		JOIN episode_metadata em ON us.tmdb_series_id = em.tmdb_series_id
+		WHERE us.user_id = $1 
+		AND em.air_date > CURRENT_DATE
+		GROUP BY us.tmdb_series_id, us.status, us.is_favorite, em.air_date, us.created_at, us.updated_at
+		ORDER BY em.air_date ASC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.db.Query(query, userID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []SeriesUpcomingRecord
+	for rows.Next() {
+		var rec SeriesUpcomingRecord
+		err := rows.Scan(
+			&rec.TMDBSeriesID,
+			&rec.Status,
+			&rec.IsFavorite,
+			&rec.AirDate,
+			&rec.Episodes,
+			&rec.Seasons,
+			&rec.CreatedAt,
+			&rec.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, rec)
+	}
+	return records, nil
+}
+
+func (r *Repository) SaveEpisodeMetadata(seriesID int, seasonNum int, episodeNum int, runtime int, airDate string) error {
+	query := `
+		INSERT INTO episode_metadata (tmdb_series_id, season_number, episode_number, runtime, air_date, updated_at)
+		VALUES ($1, $2, $3, $4, NULLIF($5, '')::DATE, CURRENT_TIMESTAMP)
+		ON CONFLICT (tmdb_series_id, season_number, episode_number) DO UPDATE SET
+			runtime = EXCLUDED.runtime,
+			air_date = EXCLUDED.air_date,
+			updated_at = CURRENT_TIMESTAMP;
+	`
+	_, err := r.db.Exec(query, seriesID, seasonNum, episodeNum, runtime, airDate)
+	return err
 }

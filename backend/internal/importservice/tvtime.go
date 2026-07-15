@@ -117,7 +117,7 @@ func (im *TVTimeImporter) SearchMovieTMDB(title string, expectedDate string) (in
 			}
 		}
 
-		// 🟢 PRIORITÉ 2 : Si aucun titre n'est identique, on prend le plus proche en date
+		//PRIORITÉ 2 : Si aucun titre n'est identique, on prend le plus proche en date
 		if hasValidDate {
 			return findClosestDate(result.Results, "", false, expectedDateTyped), nil
 		}
@@ -149,7 +149,7 @@ func (im *TVTimeImporter) SearchMovieTMDB(title string, expectedDate string) (in
 	return 0, fmt.Errorf("film définitivement introuvable")
 }
 
-// 🟢 NOUVELLE MÉTHODE : Recherche intelligente pour les séries
+// NOUVELLE MÉTHODE : Recherche intelligente pour les séries
 func (im *TVTimeImporter) SearchTVShowTMDB(title string) (int, error) {
 	cleanTitle := strings.TrimSpace(title)
 
@@ -285,7 +285,7 @@ func (im *TVTimeImporter) StartAsyncAnalysis(taskID string, zipBytes []byte) {
 
 	// Identification des fichiers
 	for _, f := range r.File {
-		// 🟢 CHANGEMENT ICI : On utilise user_tv_show_data.csv
+		//CHANGEMENT ICI : On utilise user_tv_show_data.csv
 		if strings.HasSuffix(f.Name, "user_tv_show_data.csv") {
 			followedFile = f
 		} else if strings.HasSuffix(f.Name, "tracking-prod-records-v2.csv") {

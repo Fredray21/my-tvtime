@@ -163,3 +163,23 @@ func (h *Handler) HandleGetSimilarMovies(c *gin.Context) {
 
 	c.JSON(http.StatusOK, movies)
 }
+
+// GET /api/movies/upcoming?page=1
+func (h *Handler) HandleGetUpcomingMovies(c *gin.Context) {
+	userID, _ := c.Get("clerkUserID")
+
+	pageStr := c.DefaultQuery("page", "1")
+	page, _ := strconv.Atoi(pageStr)
+
+	results, err := h.service.GetUpcomingMovies(userID.(string), page)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"page":          page,
+		"results":       results,
+		"has_next_page": len(results) == 20,
+	})
+}

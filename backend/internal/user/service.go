@@ -11,15 +11,17 @@ type UserService struct {
 	tmdbClient   *tmdb.Client
 	movieService *movie.MovieService
 	tvService    *tv.TVService
+	movieRepo    *movie.Repository
 	tvRepo       *tv.Repository
 }
 
-func NewService(repo *Repository, tmdbClient *tmdb.Client, movieSvc *movie.MovieService, tvSvc *tv.TVService, tvRepo *tv.Repository) *UserService {
+func NewService(repo *Repository, tmdbClient *tmdb.Client, movieSvc *movie.MovieService, tvSvc *tv.TVService, movieRepo *movie.Repository, tvRepo *tv.Repository) *UserService {
 	return &UserService{
 		tmdbClient:   tmdbClient,
 		repo:         repo,
 		movieService: movieSvc,
 		tvService:    tvSvc,
+		movieRepo:    movieRepo,
 		tvRepo:       tvRepo,
 	}
 }
@@ -45,7 +47,7 @@ func (s *UserService) GetUserStats(userID string) (UserStatsResponse, error) {
 func (s *UserService) GetLatestWatchedMovies(userID string, page, limit int) ([]movie.MovieCustomResponse, error) {
 	offset := (page - 1) * limit
 
-	records, err := s.repo.GetLatestWatchedMovies(userID, limit+1, offset)
+	records, err := s.movieRepo.GetLatestWatchedMovies(userID, limit+1, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +82,7 @@ func (s *UserService) GetLatestWatchedTV(userID string, page, limit int) ([]tv.S
 func (s *UserService) GetMovieStats(userID string) (MovieStats, error) {
 	var stats MovieStats
 
-	totalViews, totalMinutes, err := s.repo.GetMovieStatsCalculated(userID)
+	totalViews, totalMinutes, err := s.movieRepo.GetMovieStatsCalculated(userID)
 	if err != nil {
 		return stats, err
 	}

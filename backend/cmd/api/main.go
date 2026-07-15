@@ -42,7 +42,7 @@ func main() {
 
 	movieService := movie.NewService(movieRepo, tmdbClient)
 	tvService := tv.NewService(tvRepo, tmdbClient)
-	userService := user.NewService(userRepo, tmdbClient, movieService, tvService, tvRepo)
+	userService := user.NewService(userRepo, tmdbClient, movieService, tvService, movieRepo, tvRepo)
 	searchService := search.NewService(tmdbClient, movieService, tvService)
 
 	movieHandler := movie.NewHandler(movieService)
@@ -82,6 +82,7 @@ func main() {
 			movieRoutes.GET("/:id", movieHandler.HandleGetDetails)
 			movieRoutes.GET("/watchlist", movieHandler.HandleGetWatchlist)
 			movieRoutes.GET("/:id/similar", movieHandler.HandleGetSimilarMovies)
+			movieRoutes.GET("/upcoming", movieHandler.HandleGetUpcomingMovies)
 		}
 
 		tvRoutes := api.Group("/tvs")
@@ -93,6 +94,7 @@ func main() {
 			tvRoutes.GET("/favorites", tvHandler.HandlerGetFavorites)
 			tvRoutes.GET("/:id", tvHandler.HandlerGetDetails)
 			tvRoutes.GET("/:id/similar", tvHandler.HandlerGetSimilarSeries)
+			tvRoutes.GET("/upcoming", tvHandler.HandlerGetUpcomingSeries)
 
 			// Épisodes et Saisons
 			tvRoutes.POST("/watch", tvHandler.HandlerWatchEpisode)

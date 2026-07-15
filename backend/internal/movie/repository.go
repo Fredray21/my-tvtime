@@ -249,13 +249,13 @@ func (r *Repository) GetUpcomingMoviesRecords(userID string, page int, limit int
 	// On JOIN avec movie_metadata et on filtre : release_date > CURRENT_DATE
 	// On trie par date de sortie croissante (le plus proche en premier)
 	query := `
-		SELECT um.tmdb_movie_id, um.status, um.is_favorite, um.rewatch_count, um.created_at, um.updated_at 
-		FROM user_movies um
-		JOIN movie_metadata mm ON um.tmdb_movie_id = mm.tmdb_movie_id
-		WHERE um.user_id = $1 AND um.status = 'watchlist' AND mm.release_date > CURRENT_DATE
-		ORDER BY mm.release_date ASC
-		LIMIT $2 OFFSET $3
-	`
+        SELECT um.tmdb_movie_id, um.status, um.is_favorite, um.rewatch_count, um.created_at, um.updated_at, mm.release_date
+        FROM user_movies um
+        JOIN movie_metadata mm ON um.tmdb_movie_id = mm.tmdb_movie_id
+        WHERE um.user_id = $1 AND um.status = 'watchlist' AND mm.release_date > CURRENT_DATE
+        ORDER BY mm.release_date ASC
+        LIMIT $2 OFFSET $3
+    `
 
 	rows, err := r.db.Query(query, userID, limit, offset)
 	if err != nil {
@@ -266,7 +266,7 @@ func (r *Repository) GetUpcomingMoviesRecords(userID string, page int, limit int
 	var records []MovieRecord
 	for rows.Next() {
 		var rec MovieRecord
-		err := rows.Scan(&rec.TMDBMovieID, &rec.Status, &rec.IsFavorite, &rec.RewatchCount, &rec.CreatedAt, &rec.UpdatedAt)
+		err := rows.Scan(&rec.TMDBMovieID, &rec.Status, &rec.IsFavorite, &rec.RewatchCount, &rec.ReleaseDate, &rec.CreatedAt, &rec.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}

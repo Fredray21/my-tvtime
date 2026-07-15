@@ -9,6 +9,7 @@ type MovieRecord struct {
 	Status       string `json:"status"` // 'watchlist' ou 'watched'
 	IsFavorite   bool   `json:"is_favorite"`
 	RewatchCount int    `json:"rewatch_count"`
+	ReleaseDate  string `json:"release_date,omitempty"`
 
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	UpdatedAt time.Time `json:"updated_at,omitempty"`

@@ -101,7 +101,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
     // 3. Regroupement par date pour l'onglet "À venir"
     const groupedByDate = activeTab === 'upcoming'
         ? displayData.reduce((acc, item) => {
-            const date = item.next_episode_to_air?.air_date || 'Inconnu';
+            const date = item.next_episode_to_air?.air_date || item.release_date ||'Inconnu';
             if (!acc[date]) acc[date] = [];
             acc[date].push(item);
             return acc;

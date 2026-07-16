@@ -15,17 +15,17 @@ interface MediaCardProps {
 
 const NextEpisodeInfo = ({ seriesId, season, episode }: { seriesId: number, season: number, episode: number }) => {
     const api = useApi();
-    const { data, isLoading } = useQuery({
+    
+    const { data } = useQuery({
         queryKey: ['episodeName', seriesId, season, episode],
         queryFn: () => api.media.getSeasonDetails(seriesId, season)
             .then(res => res.episodes.find(e => e.episode_number === episode)),
-        staleTime: 1000 * 60 * 60,
+        staleTime: Infinity,
+        gcTime: 1000 * 60 * 60,
     });
 
-    if (isLoading) return <span className="text-zinc-500 animate-pulse">Chargement...</span>;
-    return <span className="line-clamp-1">{data?.name}</span>;
+    return <span className="line-clamp-1">{data?.name || `S${season} | E${episode}`}</span>;
 };
-
 
 export const MediaCard: React.FC<MediaCardProps> = ({
     item,
@@ -67,13 +67,13 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     const [swipeOffset, setSwipeOffset] = useState(0);
     const [touchStartX, setTouchStartX] = useState<number | null>(null);
     const [touchStartY, setTouchStartY] = useState<number | null>(null);
-    const [isDragging, setIsDragging] = useState(false); // Verrou d'axe
+    const [isDragging, setIsDragging] = useState(false);
 
     const handleTouchStart = (e: React.TouchEvent) => {
         if (layout !== 'list' || !onStatusChange || isPerson || item.status_local === 'watched') return;
         setTouchStartX(e.touches[0].clientX);
         setTouchStartY(e.touches[0].clientY);
-        setIsDragging(false); // On réinitialise le verrou au toucher
+        setIsDragging(false);
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
@@ -81,19 +81,15 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         const xDiff = e.touches[0].clientX - touchStartX;
         const yDiff = e.touches[0].clientY - touchStartY;
 
-        // Détermination de l'axe au début du mouvement
         if (!isDragging) {
-            // Si on va plus vers la droite que vers le bas/haut
             if (Math.abs(xDiff) > Math.abs(yDiff) && xDiff > 0) {
-                setIsDragging(true); // On verrouille l'intention de swiper
+                setIsDragging(true);
             } else {
-                return; // C'est un scroll vertical, on laisse le navigateur faire
+                return;
             }
         }
 
-        // Si on est verrouillé en mode swipe horizontal
         if (xDiff > 0) {
-            // Effet élastique : après 80px, ça devient plus "dur" de tirer
             const offset = xDiff > 80 ? 80 + (xDiff - 80) * 0.2 : xDiff;
             setSwipeOffset(offset);
         }
@@ -119,7 +115,6 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         setIsDragging(false);
     };
 
-    // Empêche le clic accidentel quand on relâche le doigt après un swipe
     const handleClick = (e: React.MouseEvent) => {
         if (swipeOffset > 0 || isDragging) {
             e.preventDefault();
@@ -131,10 +126,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     // ==========================================
     if (layout === 'list') {
         const content = (
-            <div
-                style={{ transform: `translateX(${swipeOffset}px)`, transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none' }}
-                className="relative w-full bg-zinc-900/50 border border-zinc-800/40 rounded-xl overflow-hidden flex group transition-all hover:border-zinc-700 h-full"
-            >
+            <div className="relative w-full bg-zinc-900/50 border border-zinc-800/40 rounded-xl overflow-hidden flex group transition-all hover:border-zinc-700 h-full">
                 <div className="w-20 sm:w-24 aspect-[2/3] flex-shrink-0 bg-zinc-950 relative">
                     <img src={imageUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
                 </div>
@@ -178,25 +170,6 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                             <span className="text-sm">J-{daysLeft}</span>
                         </div>
                     )}
-
-                    {onStatusChange && !isPerson && item.status_local !== 'watched' && (
-                        <button
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                triggerVibration([20, 80, 20]);
-                                
-                                if (mediaType === 'tv' && item.next_episode_number > 0 && onWatchEpisode) {
-                                    onWatchEpisode(item.id, item.next_season_number, item.next_episode_number);
-                                } else {
-                                    onStatusChange(item.id || item.tmdb_id, 'watched');
-                                }
-                            }}
-                            className="w-10 h-10 flex items-center justify-center bg-zinc-800 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-500 rounded-full transition-all border border-zinc-700 hover:border-emerald-500/50"
-                        >
-                            <CheckCircle size={18} strokeWidth={3} />
-                        </button>
-                    )}
                 </div>
             </div>
         );
@@ -209,21 +182,21 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 style={{ touchAction: 'pan-y' }}
                 className="relative overflow-hidden rounded-xl cursor-pointer select-none"
             >
-                {swipeOffset > 0 && <div className="absolute inset-0 bg-emerald-500 ...">...</div>}
-
-                <div className="flex">
+                <div 
+                    style={{ transform: `translateX(${swipeOffset}px)`, transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none' }}
+                    className="flex"
+                >
                     <Link to={targetUrl} onClick={handleClick} className="flex-grow block">
                         {content}
                     </Link>
                     
-                    <div className="z-20 flex items-center pr-3">
+                    <div className="z-20 flex items-center pr-3 ml-2">
                         {onStatusChange && !isPerson && item.status_local !== 'watched' && (
                             <button
                                 onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     triggerVibration([20, 80, 20]);
-                                    
                                     if (mediaType === 'tv' && item.next_episode_number > 0 && onWatchEpisode) {
                                         onWatchEpisode(item.id, item.next_season_number, item.next_episode_number);
                                     } else {

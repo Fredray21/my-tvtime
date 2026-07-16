@@ -183,3 +183,21 @@ func (h *Handler) HandleGetUpcomingMovies(c *gin.Context) {
 		"has_next_page": len(results) == 20,
 	})
 }
+
+
+func (h *Handler) HandlerGetMovieCredits(c *gin.Context) {
+    tmdbID, err := strconv.Atoi(c.Param("id"))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "ID invalide"})
+        return
+    }
+
+    credits, err := h.service.GetMovieCredits(tmdbID)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de la récupération des crédits"})
+        return
+    }
+
+    c.JSON(http.StatusOK, credits)
+}
+

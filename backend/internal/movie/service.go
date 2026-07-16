@@ -195,3 +195,16 @@ func (s *MovieService) GetUpcomingMovies(userID string, page int) ([]MovieCustom
 	}
 	return s.EnrichMovieRecords(userID, records)
 }
+
+func (s *MovieService) GetMovieCredits(tmdbMovieID int) (map[string]interface{}, error) {
+    data, err := s.tmdbClient.GetCredits(tmdbMovieID, "movie")
+    if err != nil {
+        return nil, err
+    }
+    
+    var credits map[string]interface{}
+    if err := json.Unmarshal(data, &credits); err != nil {
+        return nil, err
+    }
+    return credits, nil
+}

@@ -21,6 +21,14 @@ export const MovieDetailsView = () => {
         enabled: !isNaN(movieId),
     });
 
+    // Récupération de la distribution (casting)
+    const { data: credits, isLoading: isCreditsLoading } = useQuery({
+        queryKey: ['movie', 'credits', movieId],
+        queryFn: () => api.media.getMediaCredits(movieId, mediaType),
+        enabled: !isNaN(movieId),
+        staleTime: Infinity, // Le casting ne change pas, on garde indéfiniment en cache
+    });
+
     const { data: similarMovies, isLoading: isSimilarLoading } = useQuery({
         queryKey: ['movie', 'similar', movieId],
         queryFn: () => api.media.getSimilar(movieId, mediaType),
@@ -126,7 +134,6 @@ export const MovieDetailsView = () => {
                     {movie.title || movie.name}
                 </h1>
 
-
                 <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-zinc-400 mb-6">
                     <span className="bg-zinc-800/80 px-2 py-1 rounded-md text-zinc-200">{year}</span>
                     {formattedRuntime && <span>⏱ {formattedRuntime}</span>}
@@ -155,7 +162,6 @@ export const MovieDetailsView = () => {
                                     triggerVibration([50, 80, 20]);
                                     mutation.mutate({ newStatus: 'not_tracked', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
                                 }}
-
                                 className="flex-[2] py-3 rounded-xl font-bold text-sm bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/30 transition-all"
                             >
                                 ✅ Déjà vu
@@ -172,8 +178,7 @@ export const MovieDetailsView = () => {
                                             isFavorite: movie.is_favorite,
                                             rewatch_count: Math.max(0, (movie.rewatch_count || 0) - 1)
                                         })
-                                    }
-                                    }
+                                    }}
                                     disabled={(movie.rewatch_count || 0) <= 0}
                                     className="w-10 h-full flex items-center justify-center text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition"
                                 >
@@ -194,8 +199,7 @@ export const MovieDetailsView = () => {
                                             isFavorite: movie.is_favorite,
                                             rewatch_count: (movie.rewatch_count || 0) + 1
                                         })
-                                    }
-                                    }
+                                    }}
                                     className="w-10 h-full flex items-center justify-center text-zinc-400 hover:text-white transition"
                                 >
                                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1V11M1 6H11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
@@ -217,7 +221,6 @@ export const MovieDetailsView = () => {
 
                                     mutation.mutate({ newStatus: newStatus, isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
                                 }}
-
                                 className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${movie.status_local === 'watchlist'
                                     ? 'bg-purple-500 text-black hover:bg-purple-400'
                                     : 'bg-zinc-800 text-white hover:bg-zinc-700'
@@ -285,7 +288,6 @@ export const MovieDetailsView = () => {
                         <div className="flex flex-wrap gap-3">
                             {movie.production_companies.map(company => (
                                 <div key={company.id} className="flex items-center gap-2 bg-zinc-900 px-3 py-2 rounded-xl border border-zinc-800">
-                                    {/* TMDB renvoie souvent des logos noirs, on met un fond blanc pour la lisibilité */}
                                     {company.logo_path && (
                                         <img
                                             src={`https://image.tmdb.org/t/p/w200${company.logo_path}`}
@@ -300,7 +302,47 @@ export const MovieDetailsView = () => {
                     </div>
                 )}
 
-                {/*SECTION FILMS SIMILAIRES */}
+                {/* SECTION DISTRIBUTION (CASTING) */}
+                <div className="mb-12 mt-12 border-t border-zinc-800/50 pt-8">
+                    <h2 className="text-sm font-bold text-zinc-100 uppercase tracking-wider mb-4">
+                        Distribution
+                    </h2>
+
+                    {isCreditsLoading ? (
+                        <div className="flex gap-4 overflow-x-hidden">
+                            {[1, 2, 3, 4, 5, 6].map((i) => (
+                                <div key={i} className="w-24 flex-shrink-0">
+                                    <div className="w-24 aspect-[2/3] bg-zinc-900 rounded-xl animate-pulse" />
+                                    <div className="h-3 bg-zinc-900 rounded mt-2 w-5/6 animate-pulse" />
+                                    <div className="h-2 bg-zinc-900 rounded mt-1 w-2/3 animate-pulse" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : credits?.cast && credits.cast.length > 0 ? (
+                        <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-none snap-x">
+                            {credits.cast.slice(0, 15).map((actor: any) => (
+                                <div key={actor.id} className="w-24 flex-shrink-0 snap-start">
+                                    <div className="w-24 aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800/40 relative shadow-sm">
+                                        <img
+                                            src={actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : 'https://dummyimage.com/200x300?text=No+Photo'}
+                                            alt={actor.name}
+                                            className="w-full h-full object-cover"
+                                            loading="lazy"
+                                        />
+                                    </div>
+                                    <p className="text-xs font-semibold mt-2 text-zinc-200 line-clamp-1 leading-tight">{actor.name}</p>
+                                    <p className="text-[10px] text-zinc-500 line-clamp-1 mt-0.5 leading-none">{actor.character}</p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-zinc-500 text-sm italic bg-zinc-900/30 p-4 rounded-xl text-center border border-dashed border-zinc-800">
+                            Aucune information sur la distribution disponible.
+                        </div>
+                    )}
+                </div>
+
+                {/* SECTION FILMS SIMILAIRES */}
                 <div className="mb-12 mt-12 border-t border-zinc-800/50 pt-8">
                     <h2 className="text-sm font-bold text-zinc-100 uppercase tracking-wider mb-4">
                         Films similaires
@@ -333,4 +375,4 @@ export const MovieDetailsView = () => {
             </div>
         </div>
     );
-};  
+};

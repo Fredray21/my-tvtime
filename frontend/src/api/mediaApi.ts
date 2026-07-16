@@ -125,6 +125,28 @@ export interface SeasonCustomResponse {
     episodes: EpisodeCustomResponse[];
 }
 
+
+export interface CastMember {
+    id: number;
+    name: string;
+    character: string;
+    profile_path: string | null;
+    order: number;
+}
+
+export interface CrewMember {
+    id: number;
+    name: string;
+    job: string;
+    department: string;
+}
+
+export interface CreditsResponse {
+    id: number;
+    cast: CastMember[];
+    crew: CrewMember[];
+}
+
 export const createMediaApi = (api: AxiosInstance) => ({
     getWatchlist: async (page: number, mediaType: 'movie' | 'tv') => {
         const response = await api.get(`/${mediaType}s/watchlist?page=${page}`);
@@ -201,5 +223,11 @@ export const createMediaApi = (api: AxiosInstance) => ({
     getUpcomingSeries: async (page: number): Promise<WatchlistPaginatedResponse> => {
         const response = await api.get(`/tvs/upcoming?page=${page}`);
         return response.data;
-    }
+    },
+
+    getMediaCredits: async (id: number, mediaType: 'movie' | 'tv'): Promise<CreditsResponse> => {
+        const response = await api.get(`/${mediaType}s/${id}/credits`);
+        return response.data;
+    },
+
 });

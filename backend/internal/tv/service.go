@@ -535,3 +535,16 @@ func (s *TVService) GetUpcomingSeries(userID string, page int) ([]SeriesCustomRe
 
 	return s.EnrichSeriesRecords(userID, identifiers)
 }
+
+func (s *MovieService) GetSerieCredits(tmdbMovieID int) (map[string]interface{}, error) {
+    data, err := s.tmdbClient.GetCredits(tmdbMovieID, "tv")
+    if err != nil {
+        return nil, err
+    }
+    
+    var credits map[string]interface{}
+    if err := json.Unmarshal(data, &credits); err != nil {
+        return nil, err
+    }
+    return credits, nil
+}

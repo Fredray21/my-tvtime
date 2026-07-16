@@ -99,6 +99,13 @@ func (c *Client) GetTMDBIDFromTVDB(tvdbID int) ([]byte, error) {
 	return c.get(url)
 }
 
+func (r *Repository) GetCredits(tmdbID int, mediaType string) ([]byte, error) {
+    url := fmt.Sprintf("/%s/%d/credits?api_key=%s&language=fr-FR", mediaType, tmdbID, r.apiKey)
+    return c.get(url)
+}
+
+
+
 func (c *Client) get(url string) ([]byte, error) {
 	resp, err := c.httpClient.Get(url)
 	if err != nil {

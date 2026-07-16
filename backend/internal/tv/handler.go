@@ -292,3 +292,19 @@ func (h *Handler) HandlerGetUpcomingSeries(c *gin.Context) {
 
 	c.JSON(200, gin.H{"page": page, "results": results, "has_next_page": len(results) == 20})
 }
+
+func (h *Handler) HandlerGetSerieCredits(c *gin.Context) {
+    tmdbID, err := strconv.Atoi(c.Param("id"))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "ID invalide"})
+        return
+    }
+
+    credits, err := h.service.GetSerieCredits(tmdbID)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de la récupération des crédits"})
+        return
+    }
+
+    c.JSON(http.StatusOK, credits)
+}

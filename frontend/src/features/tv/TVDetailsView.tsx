@@ -26,6 +26,14 @@ export const TVDetailsView = () => {
         enabled: !isNaN(seriesId),
     });
 
+    // Récupération de la distribution (casting)
+    const { data: credits, isLoading: isCreditsLoading } = useQuery({
+        queryKey: ['tv', 'credits', seriesId],
+        queryFn: () => api.media.getMediaCredits(seriesId, mediaType),
+        enabled: !isNaN(seriesId),
+        staleTime: Infinity, // Le casting ne change pas, on garde indéfiniment en cache
+    });
+
     const { data: similarSeries, isLoading: isSimilarLoading } = useQuery({
         queryKey: ['tv', 'similar', seriesId],
         queryFn: () => api.media.getSimilarSeries(seriesId),
@@ -190,6 +198,46 @@ export const TVDetailsView = () => {
                             defaultOpen={season.id === defaultSeasonId}
                         />
                     ))}
+                </div>
+
+                {/* SECTION DISTRIBUTION (CASTING) */}
+                <div className="mb-12 mt-12 border-t border-zinc-800/50 pt-8">
+                    <h2 className="text-sm font-bold text-zinc-100 uppercase tracking-wider mb-4">
+                        Distribution
+                    </h2>
+
+                    {isCreditsLoading ? (
+                        <div className="flex gap-4 overflow-x-hidden">
+                            {[1, 2, 3, 4, 5, 6].map((i) => (
+                                <div key={i} className="w-24 flex-shrink-0">
+                                    <div className="w-24 aspect-[2/3] bg-zinc-900 rounded-xl animate-pulse" />
+                                    <div className="h-3 bg-zinc-900 rounded mt-2 w-5/6 animate-pulse" />
+                                    <div className="h-2 bg-zinc-900 rounded mt-1 w-2/3 animate-pulse" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : credits?.cast && credits.cast.length > 0 ? (
+                        <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-none snap-x">
+                            {credits.cast.slice(0, 15).map((actor: any) => (
+                                <div key={actor.id} className="w-24 flex-shrink-0 snap-start">
+                                    <div className="w-24 aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800/40 relative shadow-sm">
+                                        <img
+                                            src={actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : 'https://dummyimage.com/200x300?text=No+Photo'}
+                                            alt={actor.name}
+                                            className="w-full h-full object-cover"
+                                            loading="lazy"
+                                        />
+                                    </div>
+                                    <p className="text-xs font-semibold mt-2 text-zinc-200 line-clamp-1 leading-tight">{actor.name}</p>
+                                    <p className="text-[10px] text-zinc-500 line-clamp-1 mt-0.5 leading-none">{actor.character}</p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-zinc-500 text-sm italic bg-zinc-900/30 p-4 rounded-xl text-center border border-dashed border-zinc-800">
+                            Aucune information sur la distribution disponible.
+                        </div>
+                    )}
                 </div>
 
                 {/* --- RECOMMANDATIONS --- */}

@@ -83,6 +83,7 @@ func main() {
 			movieRoutes.GET("/watchlist", movieHandler.HandleGetWatchlist)
 			movieRoutes.GET("/:id/similar", movieHandler.HandleGetSimilarMovies)
 			movieRoutes.GET("/upcoming", movieHandler.HandleGetUpcomingMovies)
+			moviesGroup.GET("/:id/credits", handler.HandlerGetMovieCredits)
 		}
 
 		tvRoutes := api.Group("/tvs")
@@ -95,6 +96,8 @@ func main() {
 			tvRoutes.GET("/:id", tvHandler.HandlerGetDetails)
 			tvRoutes.GET("/:id/similar", tvHandler.HandlerGetSimilarSeries)
 			tvRoutes.GET("/upcoming", tvHandler.HandlerGetUpcomingSeries)
+			moviesGroup.GET("/:id/credits", handler.HandlerGetSerieCredits)
+
 
 			// Épisodes et Saisons
 			tvRoutes.POST("/watch", tvHandler.HandlerWatchEpisode)

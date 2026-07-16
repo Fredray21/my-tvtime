@@ -410,7 +410,7 @@ func (r *Repository) GetNextEpisodeForSeries(userID string, tmdbSeriesID int) (i
 
 	var season, episode int
 	var name sql.NullString
-    err = r.db.QueryRow(query, userID, tmdbSeriesID).Scan(&season, &episode, &name)
+    err := r.db.QueryRow(query, userID, tmdbSeriesID).Scan(&season, &episode, &name)
 
 	if err == sql.ErrNoRows {
 		return 0, 0, "", nil // Aucun épisode restant à voir

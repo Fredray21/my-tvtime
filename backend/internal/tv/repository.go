@@ -265,10 +265,10 @@ func (r *Repository) DecrementEpisodeRewatch(userID string, tmdbSeriesID, season
 
 // GetWatchedCountBySeason renvoie un dictionnaire [numero_saison] => nombre_episodes_vus
 func (r *Repository) GetWatchedCountBySeason(userID string, seriesID int) (map[int]int, error) {
-    query := `
+	query := `
         SELECT season_number, COUNT(*) as watched_count
         FROM user_episodes 
-        WHERE user_id = $1 AND tmdb_series_id = $2 AND rewatch_count > 0
+        WHERE user_id = $1 AND tmdb_series_id = $2
         GROUP BY season_number
     `
     rows, err := r.db.Query(query, userID, seriesID)

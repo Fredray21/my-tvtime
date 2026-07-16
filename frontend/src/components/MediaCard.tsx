@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Star, Heart, Check, Eye, CalendarClock } from 'lucide-react';
+import { Star, Heart, CheckCircle, Eye, CalendarClock } from 'lucide-react';
 import { triggerVibration } from '../utils/haptics';
 
 interface MediaCardProps {
@@ -148,7 +148,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                             }}
                             className="w-10 h-10 flex items-center justify-center bg-zinc-800 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-500 rounded-full transition-all border border-zinc-700 hover:border-emerald-500/50"
                         >
-                            <Check size={18} strokeWidth={3} />
+                            <CheckCircle size={18} strokeWidth={3} />
                         </button>
                     )}
                 </div>
@@ -166,7 +166,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 {swipeOffset > 0 && (
                     <div className="absolute inset-0 bg-emerald-500 flex items-center px-6 rounded-xl">
                         <span className={`text-white font-bold flex items-center gap-2 transition-transform duration-200 ${swipeOffset > 60 ? 'scale-110' : 'scale-100 opacity-70'}`}>
-                            <Check size={20} strokeWidth={3} /> Marquer vu
+                            <CheckCircle size={20} strokeWidth={3} /> Marquer vu
                         </span>
                     </div>
                 )}

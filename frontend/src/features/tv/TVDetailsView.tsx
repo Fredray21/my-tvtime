@@ -89,7 +89,7 @@ export const TVDetailsView = () => {
                     <span className="bg-zinc-800/80 px-2 py-1 rounded-md text-zinc-200">{year}</span>
                     {formattedRuntime && <span>⏱ ~{formattedRuntime}/ép.</span>}
                     <span>Saisons : {series.number_of_seasons}</span>
-                    {series.vote_average > 0 && <span className="text-amber-400">⭐️ {series.vote_average.toFixed(1)}/10</span>}
+                    {series.vote_average !== undefined && series.vote_average > 0 && <span className="text-amber-400">⭐️ {series.vote_average.toFixed(1)}/10</span>}
                 </div>
 
                 <div className="mb-8">

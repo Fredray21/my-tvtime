@@ -25,7 +25,11 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
     const queryClient = useQueryClient();
 
     const [activeTab, setActiveTab] = useState<'to_watch' | 'upcoming'>('to_watch');
-    const [viewMode, setViewMode] = useLocalStorage<'card' | 'list'>(`watchlist_view_mode_${mediaType}`, 'card');
+    const [viewMode, setViewMode] = useLocalStorage<'card' | 'list'>(
+        mediaType === 'tv' ? 'watchlist_view_mode_tv' : 'watchlist_view_mode_movie', 
+        'card'
+    );
+
 
     const {
         data,
@@ -198,6 +202,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                                                         fallbackMediaType="tv"
                                                         onStatusChange={(id, status) => mutation.mutate({ movieId: id, newStatus: status })}
                                                         onWatchEpisode={(id, season, episode) => {
+                                                            console.log("Tentative de validation:", { id, season, episode });
                                                             api.media.watchEpisode(id, season, episode).then(() => {
                                                                 queryClient.invalidateQueries({ queryKey: ['watchlist', mediaType] });
                                                             });

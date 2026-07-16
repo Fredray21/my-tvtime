@@ -11,7 +11,6 @@ import { MediaGridPage } from './components/MediaGridPage';
 import { Clock, Heart } from 'lucide-react';
 import { useApi } from './context/ApiContext';
 
-// 1. Récupération de la clé Clerk depuis les variables d'environnement Vite
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!PUBLISHABLE_KEY) {
@@ -34,22 +33,17 @@ export const App = () => {
     return (
         <QueryClientProvider client={queryClient}>
             <BrowserRouter>
-
-                {/* 3. Ce bloc ne s'affiche QUE si l'utilisateur est DÉCONNECTÉ */}
                 <SignedOut>
                     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4">
-                        {/* Tu pourras glisser ton logo ici plus tard ! */}
                         <SignIn routing="hash" />
                     </div>
                 </SignedOut>
 
-                {/* 4. Ce bloc ne s'affiche QUE si l'utilisateur est CONNECTÉ */}
                 <SignedIn>
                     <Routes>
                         <Route element={<AppLayout />}>
-                            {/* Les pages qui auront la Bottom Navbar */}
-                            <Route path="/" element={<WatchlistView mediaType="movie" />} />
-                            <Route path="/tv" element={<WatchlistView mediaType="tv" />} />
+                            <Route path="/" element={<WatchlistView key={"movie"} mediaType="movie" />} />
+                            <Route path="/tv" element={<WatchlistView key={"tv"} mediaType="tv" />} />
 
                             <Route path="/search" element={<SearchView />} />
 

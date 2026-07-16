@@ -202,21 +202,41 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         );
 
         return (
-            <div
+            <div 
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 style={{ touchAction: 'pan-y' }}
                 className="relative overflow-hidden rounded-xl cursor-pointer select-none"
             >
-                {swipeOffset > 0 && (
-                    <div className="absolute inset-0 bg-emerald-500 flex items-center px-6 rounded-xl">
-                        <span className={`text-white font-bold flex items-center gap-2 transition-transform duration-200 ${swipeOffset > 60 ? 'scale-110' : 'scale-100 opacity-70'}`}>
-                            <CheckCircle size={20} strokeWidth={3} /> Marquer vu
-                        </span>
+                {swipeOffset > 0 && <div className="absolute inset-0 bg-emerald-500 ...">...</div>}
+
+                <div className="flex">
+                    <Link to={targetUrl} onClick={handleClick} className="flex-grow block">
+                        {content}
+                    </Link>
+                    
+                    <div className="z-20 flex items-center pr-3">
+                        {onStatusChange && !isPerson && item.status_local !== 'watched' && (
+                            <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    triggerVibration([20, 80, 20]);
+                                    
+                                    if (mediaType === 'tv' && item.next_episode_number > 0 && onWatchEpisode) {
+                                        onWatchEpisode(item.id, item.next_season_number, item.next_episode_number);
+                                    } else {
+                                        onStatusChange(item.id || item.tmdb_id, 'watched');
+                                    }
+                                }}
+                                className="w-10 h-10 flex items-center justify-center bg-zinc-800 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-500 rounded-full transition-all border border-zinc-700 hover:border-emerald-500/50"
+                            >
+                                <CheckCircle size={18} strokeWidth={3} />
+                            </button>
+                        )}
                     </div>
-                )}
-                {isPerson ? <div>{content}</div> : <Link to={targetUrl} onClick={handleClick} className="block">{content}</Link>}
+                </div>
             </div>
         );
     }

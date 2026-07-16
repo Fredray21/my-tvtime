@@ -22,7 +22,7 @@ export interface TMDBSeasonShort {
     vote_average: number;
 
     //custom data
-    WatchedCount: number;
+    watched_count: number;
 }
 
 // --- 2. LE TYPE HYBRIDE (FILM & SÉRIE) ---

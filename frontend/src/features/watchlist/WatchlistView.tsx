@@ -101,7 +101,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
     // 3. Regroupement par date pour l'onglet "À venir"
     const groupedByDate = activeTab === 'upcoming'
         ? displayData.reduce((acc, item) => {
-            const date = item.next_episode_to_air?.air_date || item.release_date ||'Inconnu';
+            const date = item.next_episode_to_air?.air_date || item.release_date || 'Inconnu';
             if (!acc[date]) acc[date] = [];
             acc[date].push(item);
             return acc;
@@ -165,13 +165,12 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                                 </div>
                             ))
                         ) : (
-                            // Rendu "À voir" en sections (pour Séries) ou grille (pour Films)
                             mediaType === 'tv' ? (
                                 [
                                     { id: 'watching', title: 'En cours', icon: <Tv size={18} /> },
                                     { id: 'pending', title: 'En attente', icon: <Hourglass size={18} /> },
                                     { id: 'watchlist', title: 'À commencer', icon: <PlayCircle size={18} /> },
-                                    { id: 'finished', title: 'Terminées', icon: <CheckCircle size={18} /> }
+                                    { id: 'finished', title: 'Terminées', icon: <CheckCircle size={18} className="fill-emerald-500 text-black" /> }
                                 ].map((section) => {
                                     const sectionItems = displayData.filter(i => i.status_local === section.id);
                                     if (sectionItems.length === 0) return null;

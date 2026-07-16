@@ -160,7 +160,18 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                                     </h3>
                                     <div className={viewMode === 'card' ? "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3" : "flex flex-col gap-3"}>
                                         {groupedByDate[date].map((item: SeriesItem) => (
-                                            <MediaCard key={item.id} item={item} layout={viewMode} fallbackMediaType={mediaType} onStatusChange={(id, status) => mutation.mutate({ movieId: id, newStatus: status })} />
+                                            <MediaCard
+                                                key={item.id}
+                                                item={item}
+                                                layout={viewMode}
+                                                fallbackMediaType={mediaType}
+                                                onStatusChange={(id, status) => mutation.mutate({ movieId: id, newStatus: status })}
+                                                onWatchEpisode={(id, season, episode) => {
+                                                    api.media.watchEpisode(id, season, episode).then(() => {
+                                                        queryClient.invalidateQueries({ queryKey: ['watchlist', mediaType] });
+                                                    });
+                                                }}
+                                            />
                                         ))}
                                     </div>
                                 </div>
@@ -180,7 +191,18 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                                             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">{section.icon} {section.title}</h2>
                                             <div className={viewMode === 'card' ? "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3" : "flex flex-col gap-3"}>
                                                 {sectionItems.map((item) => (
-                                                    <MediaCard key={item.id} item={item} layout={viewMode} fallbackMediaType="tv" onStatusChange={(id, status) => mutation.mutate({ movieId: id, newStatus: status })} />
+                                                    <MediaCard
+                                                        key={item.id}
+                                                        item={item}
+                                                        layout={viewMode}
+                                                        fallbackMediaType="tv"
+                                                        onStatusChange={(id, status) => mutation.mutate({ movieId: id, newStatus: status })}
+                                                        onWatchEpisode={(id, season, episode) => {
+                                                            api.media.watchEpisode(id, season, episode).then(() => {
+                                                                queryClient.invalidateQueries({ queryKey: ['watchlist', mediaType] });
+                                                            });
+                                                        }}
+                                                    />
                                                 ))}
                                             </div>
                                         </div>
@@ -189,7 +211,13 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                             ) : (
                                 <div className={viewMode === 'card' ? "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3" : "flex flex-col gap-3"}>
                                     {displayData.map((item) => (
-                                        <MediaCard key={item.id} item={item} layout={viewMode} fallbackMediaType="movie" onStatusChange={(id, status) => mutation.mutate({ movieId: id, newStatus: status })} />
+                                        <MediaCard
+                                            key={item.id}
+                                            item={item}
+                                            layout={viewMode}
+                                            fallbackMediaType="movie"
+                                            onStatusChange={(id, status) => mutation.mutate({ movieId: id, newStatus: status })}
+                                        />
                                     ))}
                                 </div>
                             )

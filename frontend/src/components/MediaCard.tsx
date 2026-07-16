@@ -10,6 +10,7 @@ interface MediaCardProps {
     fallbackMediaType?: 'movie' | 'tv' | 'person';
     layout?: 'card' | 'list';
     onStatusChange?: (mediaId: number, newStatus: 'watchlist' | 'watched') => void;
+    onWatchEpisode?: (id: number, season: number, episode: number) => void;
 }
 
 const NextEpisodeInfo = ({ seriesId, season, episode }: { seriesId: number, season: number, episode: number }) => {
@@ -30,7 +31,8 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     item,
     fallbackMediaType = 'movie',
     layout = 'card',
-    onStatusChange
+    onStatusChange,
+    onWatchEpisode
 }) => {
     const api = useApi();
     const queryClient = useQueryClient();
@@ -101,9 +103,12 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         if (swipeOffset > 60 && onStatusChange) {
             triggerVibration([50, 100, 50]);
 
-            if (mediaType === 'tv' && item.next_episode_number) {
+            if (mediaType === 'tv' && item.next_episode_number > 0) {
                 api.media.watchEpisode(item.id, item.next_season_number, item.next_episode_number)
-                    .then(() => queryClient.invalidateQueries({ queryKey: ['watchlist'] }));
+                    .then(() => {
+                        queryClient.invalidateQueries({ queryKey: ['watchlist'] });
+                        queryClient.invalidateQueries({ queryKey: ['tv', item.id] });
+                    });
             } else {
                 onStatusChange(item.id || item.tmdb_id, 'watched');
             }
@@ -180,7 +185,12 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                                 e.preventDefault();
                                 e.stopPropagation();
                                 triggerVibration([20, 80, 20]);
-                                onStatusChange(item.id || item.tmdb_id, 'watched');
+                                
+                                if (mediaType === 'tv' && item.next_episode_number > 0 && onWatchEpisode) {
+                                    onWatchEpisode(item.id, item.next_season_number, item.next_episode_number);
+                                } else {
+                                    onStatusChange(item.id || item.tmdb_id, 'watched');
+                                }
                             }}
                             className="w-10 h-10 flex items-center justify-center bg-zinc-800 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-500 rounded-full transition-all border border-zinc-700 hover:border-emerald-500/50"
                         >

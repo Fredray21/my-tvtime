@@ -99,17 +99,26 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         if (swipeOffset > 60 && onStatusChange) {
             triggerVibration([50, 100, 50]);
 
-            if (mediaType === 'tv' && item.next_episode_number > 0) {
-                api.media.watchEpisode(item.id, item.next_season_number, item.next_episode_number)
-                    .then(() => {
-                        queryClient.invalidateQueries({ queryKey: ['watchlist'] });
-                        queryClient.invalidateQueries({ queryKey: ['tv', item.id] });
-                    });
-            } else {
-                onStatusChange(item.id || item.tmdb_id, 'watched');
-            }
+            // 1. On anime jusqu'au bout de l'écran comme le bouton
+            setSwipeOffset(window.innerWidth);
+
+            // 2. On attend la fin de l'animation pour l'appel API
+            setTimeout(() => {
+                if (mediaType === 'tv' && item.next_episode_number > 0) {
+                    api.media.watchEpisode(item.id, item.next_season_number, item.next_episode_number)
+                        .then(() => {
+                            queryClient.invalidateQueries({ queryKey: ['watchlist'] });
+                            queryClient.invalidateQueries({ queryKey: ['tv', item.id] });
+                        });
+                } else {
+                    onStatusChange(item.id || item.tmdb_id, 'watched');
+                }
+            }, 300);
+        } else {
+            // Si le swipe n'était pas assez fort, on remet à 0
+            setSwipeOffset(0);
         }
-        setSwipeOffset(0);
+        
         setTouchStartX(null);
         setTouchStartY(null);
         setIsDragging(false);
@@ -126,12 +135,13 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     // ==========================================
     if (layout === 'list') {
         const content = (
-            <div className="relative w-full bg-zinc-900/50 border border-zinc-800/40 rounded-xl overflow-hidden flex group transition-all hover:border-zinc-700 h-full">
+            // Utilisation de bg-zinc-900 opaque pour cacher le fond vert au repos
+            <div className="relative w-full bg-zinc-900 border border-zinc-800/40 rounded-xl overflow-hidden flex group transition-all hover:border-zinc-700 h-full">
                 <div className="w-20 sm:w-24 aspect-[2/3] flex-shrink-0 bg-zinc-950 relative">
                     <img src={imageUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
                 </div>
 
-                <div className="p-3 flex flex-col justify-center flex-grow min-w-0 pr-14"> {/* Pr-14 pour laisser la place au bouton */}
+                <div className="p-3 flex flex-col justify-center flex-grow min-w-0 pr-14"> {/* pr-14 pour l'espace du bouton */}
                     {mediaType === 'tv' && item.next_episode_number > 0 ? (
                         <div className="flex flex-col">
                             <h3 className="font-medium text-sm text-white">
@@ -166,11 +176,18 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                                 e.preventDefault();
                                 e.stopPropagation();
                                 triggerVibration([20, 80, 20]);
-                                if (mediaType === 'tv' && item.next_episode_number > 0 && onWatchEpisode) {
-                                    onWatchEpisode(item.id, item.next_season_number, item.next_episode_number);
-                                } else {
-                                    onStatusChange(item.id || item.tmdb_id, 'watched');
-                                }
+
+                                // 1. Déclenche l'animation visuelle
+                                setSwipeOffset(window.innerWidth);
+
+                                // 2. Attend la fin de l'animation pour appeler l'API
+                                setTimeout(() => {
+                                    if (mediaType === 'tv' && item.next_episode_number > 0 && onWatchEpisode) {
+                                        onWatchEpisode(item.id, item.next_season_number, item.next_episode_number);
+                                    } else if (onStatusChange) {
+                                        onStatusChange(item.id || item.tmdb_id, 'watched');
+                                    }
+                                }, 300); // 300ms correspond à la transition
                             }}
                             className="w-10 h-10 flex items-center justify-center bg-zinc-800/80 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-500 rounded-full transition-all border border-zinc-700/50 backdrop-blur-sm"
                         >
@@ -189,8 +206,18 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 style={{ touchAction: 'pan-y' }}
                 className="relative overflow-hidden rounded-xl cursor-pointer select-none"
             >
+                {/* FOND VERT ET LOGO QUI APPARAÎT SOUS LA CARTE (z-0) */}
+                <div className="absolute inset-0 bg-emerald-500/90 flex items-center px-6 z-0">
+                    <CheckCircle className="text-white" size={32} />
+                </div>
+
                 <div 
-                    style={{ transform: `translateX(${swipeOffset}px)`, transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none' }}
+                    className="relative z-10 w-full"
+                    style={{ 
+                        transform: `translateX(${swipeOffset}px)`, 
+                        // On anime au retour à zéro, ou pendant l'animation de succès, mais pas pendant le drag manuel
+                        transition: swipeOffset > 0 && !isDragging ? 'transform 0.3s ease-out' : 'none' 
+                    }}
                 >
                     <Link to={targetUrl} onClick={handleClick} className="block">
                         {content}

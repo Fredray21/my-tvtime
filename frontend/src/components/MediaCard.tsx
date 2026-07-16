@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Star, Heart, CheckCircle, Eye, CalendarClock } from 'lucide-react';
 import { triggerVibration } from '../utils/haptics';
 import { useApi } from '../context/ApiContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface MediaCardProps {
     item: any;
@@ -18,6 +19,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     onStatusChange
 }) => {
     const api = useApi();
+    const queryClient = useQueryClient();
     const title = item.title || item.name || 'Sans titre';
     const imagePath = item.poster_path || item.profile_path;
     const imageUrl = imagePath

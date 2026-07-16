@@ -100,10 +100,9 @@ func (c *Client) GetTMDBIDFromTVDB(tvdbID int) ([]byte, error) {
 }
 
 func (c *Client) GetCredits(tmdbID int, mediaType string) ([]byte, error) {
-    url := fmt.Sprintf("/%s/%d/credits?api_key=%s&language=fr-FR", mediaType, tmdbID, c.apiKey)
+    url := fmt.Sprintf("%s/%s/%d/credits?api_key=%s&language=fr-FR", c.baseURL, mediaType, tmdbID, c.apiKey)
     return c.get(url)
 }
-
 
 
 func (c *Client) get(url string) ([]byte, error) {

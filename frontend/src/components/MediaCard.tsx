@@ -34,8 +34,6 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     onStatusChange,
     onWatchEpisode
 }) => {
-    const api = useApi();
-    const queryClient = useQueryClient();
     const title = item.title || item.name || 'Sans titre';
     const imagePath = item.poster_path || item.profile_path;
     const imageUrl = imagePath

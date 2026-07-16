@@ -69,6 +69,7 @@ type TMDBSeasonShort struct {
 	SeasonNumber int     `json:"season_number"`
 	VoteAverage  float64 `json:"vote_average"`
 
+	// custom data
 	WatchedCount int     `json:"watched_count"`
 }
 

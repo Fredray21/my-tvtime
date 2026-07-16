@@ -122,7 +122,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     };
 
     // ==========================================
-    // RENDU 1 : MODE LISTE
+    // RENDU 1 : MODE LISTE (Intégré)
     // ==========================================
     if (layout === 'list') {
         const content = (
@@ -131,7 +131,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                     <img src={imageUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
                 </div>
 
-                <div className="p-3 flex flex-col justify-center flex-grow min-w-0">
+                <div className="p-3 flex flex-col justify-center flex-grow min-w-0 pr-14"> {/* Pr-14 pour laisser la place au bouton */}
                     {mediaType === 'tv' && item.next_episode_number > 0 ? (
                         <div className="flex flex-col">
                             <h3 className="font-medium text-sm text-white">
@@ -156,21 +156,28 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                             <Star fill="currentColor" size={12} /> {item.vote_average.toFixed(1)}
                         </div>
                     )}
-                    {item.is_favorite && (
-                        <div className="mt-1 text-red-500 text-xs font-bold flex items-center gap-1">
-                            <Heart fill="currentColor" size={12} /> Favori
-                        </div>
-                    )}
                 </div>
 
-                <div className="ml-auto flex flex-col justify-center items-end gap-2 pr-3 shrink-0">
-                    {daysLeft !== null && (
-                        <div className="flex items-center gap-1.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 text-xs font-bold px-3 py-1.5 rounded-lg">
-                            <CalendarClock size={14} />
-                            <span className="text-sm">J-{daysLeft}</span>
-                        </div>
-                    )}
-                </div>
+                {/* Bouton de validation ABSOLU à l'intérieur de la carte */}
+                {onStatusChange && !isPerson && item.status_local !== 'watched' && (
+                    <div className="absolute right-3 top-0 bottom-0 flex items-center z-20">
+                        <button
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                triggerVibration([20, 80, 20]);
+                                if (mediaType === 'tv' && item.next_episode_number > 0 && onWatchEpisode) {
+                                    onWatchEpisode(item.id, item.next_season_number, item.next_episode_number);
+                                } else {
+                                    onStatusChange(item.id || item.tmdb_id, 'watched');
+                                }
+                            }}
+                            className="w-10 h-10 flex items-center justify-center bg-zinc-800/80 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-500 rounded-full transition-all border border-zinc-700/50 backdrop-blur-sm"
+                        >
+                            <CheckCircle size={20} strokeWidth={2.5} />
+                        </button>
+                    </div>
+                )}
             </div>
         );
 
@@ -184,31 +191,10 @@ export const MediaCard: React.FC<MediaCardProps> = ({
             >
                 <div 
                     style={{ transform: `translateX(${swipeOffset}px)`, transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none' }}
-                    className="flex"
                 >
-                    <Link to={targetUrl} onClick={handleClick} className="flex-grow block">
+                    <Link to={targetUrl} onClick={handleClick} className="block">
                         {content}
                     </Link>
-                    
-                    <div className="z-20 flex items-center pr-3 ml-2">
-                        {onStatusChange && !isPerson && item.status_local !== 'watched' && (
-                            <button
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    triggerVibration([20, 80, 20]);
-                                    if (mediaType === 'tv' && item.next_episode_number > 0 && onWatchEpisode) {
-                                        onWatchEpisode(item.id, item.next_season_number, item.next_episode_number);
-                                    } else {
-                                        onStatusChange(item.id || item.tmdb_id, 'watched');
-                                    }
-                                }}
-                                className="w-10 h-10 flex items-center justify-center bg-zinc-800 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-500 rounded-full transition-all border border-zinc-700 hover:border-emerald-500/50"
-                            >
-                                <CheckCircle size={18} strokeWidth={3} />
-                            </button>
-                        )}
-                    </div>
                 </div>
             </div>
         );

@@ -51,18 +51,21 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
     const observer = useRef<IntersectionObserver | null>(null);
     const bottomBoundaryRef = useCallback(
         (node: HTMLDivElement | null) => {
-            if (isFetchingNextPage) return;
             if (observer.current) observer.current.disconnect();
 
-            observer.current = new IntersectionObserver((entries) => {
-                if (entries[0].isIntersecting && hasNextPage) {
-                    fetchNextPage();
-                }
-            });
+            if (node && hasNextPage) {
+                observer.current = new IntersectionObserver((entries) => {
+                    if (entries[0].isIntersecting && !isFetchingNextPage) {
+                        fetchNextPage();
+                    }
+                }, {
+                    rootMargin: '400px'
+                });
 
-            if (node) observer.current.observe(node);
+                observer.current.observe(node);
+            }
         },
-        [isFetchingNextPage, hasNextPage, fetchNextPage]
+        [hasNextPage, isFetchingNextPage, fetchNextPage]
     );
 
     const mutation = useMutation({
@@ -83,14 +86,11 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         },
     });
 
-    // 1. Extraire et dédupliquer (Corrige l'erreur de clés uniques)
     const rawData = data?.pages.flatMap((page) => page.results || []) || [];
     const uniqueData = Array.from(new Map(rawData.map(item => [item.id, item])).values());
 
-    // 2. Préparation des données selon l'onglet
     let displayData = uniqueData;
 
-    // Filtre spécifique films pour "À voir"
     if (activeTab === 'to_watch' && mediaType === 'movie') {
         displayData = displayData.filter((item) => {
             if (!item.release_date) return true;
@@ -98,7 +98,6 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         });
     }
 
-    // 3. Regroupement par date pour l'onglet "À venir"
     const groupedByDate = activeTab === 'upcoming'
         ? displayData.reduce((acc, item) => {
             const date = item.next_episode_to_air?.air_date || item.release_date || 'Inconnu';
@@ -195,11 +194,8 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                         )}
 
                         {hasNextPage && (
-                            <div
-                                ref={bottomBoundaryRef}
-                                className="w-full py-6 flex justify-center text-zinc-500 font-semibold"
-                            >
-                                {isFetchingNextPage ? "Chargement..." : "Défilement..."}
+                            <div ref={bottomBoundaryRef} className="w-full py-6 flex justify-center text-zinc-500 font-semibold">
+                                {isFetchingNextPage ? "Chargement..." : "..."}
                             </div>
                         )}
                     </div>

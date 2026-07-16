@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Star, Heart, CheckCircle, Eye, CalendarClock } from 'lucide-react';
+import { Star, Heart, CheckCircle, Eye, CalendarClock, Loader } from 'lucide-react';
 import { triggerVibration } from '../utils/haptics';
 import { useApi } from '../context/ApiContext';
 import { useQuery } from '@tanstack/react-query';
@@ -66,15 +66,18 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     const [touchStartX, setTouchStartX] = useState<number | null>(null);
     const [touchStartY, setTouchStartY] = useState<number | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    
+    const [isProcessing, setIsProcessing] = useState(false);
 
-    // CORRECTION ICI : On réinitialise la position si l'épisode d'après charge ou si le statut change
     useEffect(() => {
         setSwipeOffset(0);
         setIsDragging(false);
+        setIsProcessing(false);
     }, [item.next_episode_number, item.status_local]);
 
-    // Fonction centralisée pour gérer l'action finale
     const handleAction = () => {
+        setIsProcessing(true);
+        
         if (mediaType === 'tv' && item.next_episode_number > 0 && onWatchEpisode) {
             onWatchEpisode(item.id, item.next_season_number, item.next_episode_number);
         } else if (onStatusChange) {
@@ -83,14 +86,14 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     };
 
     const handleTouchStart = (e: React.TouchEvent) => {
-        if (layout !== 'list' || !onStatusChange || isPerson || item.status_local === 'watched') return;
+        if (layout !== 'list' || !onStatusChange || isPerson || item.status_local === 'watched' || isProcessing) return;
         setTouchStartX(e.touches[0].clientX);
         setTouchStartY(e.touches[0].clientY);
         setIsDragging(false);
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
-        if (!touchStartX || !touchStartY || layout !== 'list') return;
+        if (!touchStartX || !touchStartY || layout !== 'list' || isProcessing) return;
         const xDiff = e.touches[0].clientX - touchStartX;
         const yDiff = e.touches[0].clientY - touchStartY;
 
@@ -109,6 +112,8 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     };
 
     const handleTouchEnd = () => {
+        if (isProcessing) return;
+        
         if (swipeOffset > 60 && onStatusChange) {
             triggerVibration([50, 100, 50]);
 
@@ -171,17 +176,19 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 {onStatusChange && !isPerson && item.status_local !== 'watched' && (
                     <div className="absolute right-3 top-0 bottom-0 flex items-center z-20">
                         <button
+                            disabled={isProcessing}
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
+                                if (isProcessing) return;
+                                
                                 triggerVibration([20, 80, 20]);
-
                                 setSwipeOffset(window.innerWidth);
                                 setTimeout(() => {
                                     handleAction();
                                 }, 200);
                             }}
-                            className="w-10 h-10 flex items-center justify-center bg-zinc-800/80 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-500 rounded-full transition-all border border-zinc-700/50 backdrop-blur-sm"
+                            className="w-10 h-10 flex items-center justify-center bg-zinc-800/80 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-500 rounded-full transition-all border border-zinc-700/50 backdrop-blur-sm disabled:opacity-50"
                         >
                             <CheckCircle size={20} strokeWidth={2.5} />
                         </button>
@@ -199,7 +206,11 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 className="relative overflow-hidden rounded-xl cursor-pointer select-none"
             >
                 <div className="absolute inset-0 bg-emerald-500/90 flex items-center px-6 z-0">
-                    <CheckCircle className="text-white" size={32} />
+                    {isProcessing ? (
+                        <Loader className="text-white animate-spin" size={32} />
+                    ) : (
+                        <CheckCircle className="text-white" size={32} />
+                    )}
                 </div>
 
                 <div 

@@ -470,6 +470,21 @@ func (s *TVService) GetUserSeriesOrderByStatus(userID string, page int) ([]Serie
 }
 
 func (s *TVService) WatchAllEpisodesInSeason(userID string, tmdbSeriesID, seasonNum int) error {
+	// On vérifie si la série existe déjà dans la table user_series
+	record, err := s.repo.GetSeriesStatus(userID, tmdbSeriesID)
+	if err != nil {
+		return err
+	}
+
+	// Si la ligne n'existe pas, on l'initialise d'abord (ici en 'watching')
+	// pour respecter la contrainte de clé étrangère (fk_user_series) de ta table user_episodes
+	if record == nil {
+		err = s.repo.SaveSeriesStatus(userID, tmdbSeriesID, "watching", serieIsFavorite, watchedAt, watchedAt)
+		if err != nil {
+			return err
+		}
+	}
+
 	seasonData, err := s.tmdbClient.GetSeasonDetails(tmdbSeriesID, seasonNum)
 	if err != nil {
 		return err

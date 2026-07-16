@@ -47,10 +47,8 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
         
         try {
             if (action === 'add') {
-                // Ta route backend optimisée pour tout cocher
                 await api.media.watchAllEpisodesInSeason(seriesId, season.season_number);
             } else {
-                // Pour décrémenter/supprimer, on doit appliquer l'action sur chaque épisode
                 let eps = seasonData?.episodes;
                 if (!eps) {
                     const data = await queryClient.fetchQuery({
@@ -67,8 +65,13 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
                     await Promise.all(promises);
                 }
             }
+            
+            await queryClient.fetchQuery({
+                queryKey: ['tv', seriesId, 'season', season.season_number],
+                queryFn: () => api.media.getSeasonDetails(seriesId, season.season_number)
+            });
+
             queryClient.invalidateQueries({ queryKey: ['tv', seriesId] });
-            queryClient.invalidateQueries({ queryKey: ['tv', seriesId, 'season', season.season_number] });
         } catch (err) {
             console.error("Erreur action saison:", err);
         } finally {

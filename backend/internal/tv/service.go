@@ -479,7 +479,7 @@ func (s *TVService) WatchAllEpisodesInSeason(userID string, tmdbSeriesID, season
 	// Si la ligne n'existe pas, on l'initialise d'abord (ici en 'watching')
 	// pour respecter la contrainte de clé étrangère (fk_user_series) de ta table user_episodes
 	if record == nil {
-		err = s.repo.SaveSeriesStatus(userID, tmdbSeriesID, "watching", serieIsFavorite, watchedAt, watchedAt)
+		err = s.repo.SaveSeriesStatus(userID, tmdbSeriesID, "watching", false, time.Now(), time.Now())
 		if err != nil {
 			return err
 		}

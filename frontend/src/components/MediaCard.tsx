@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Star, Heart, CheckCircle, Eye, CalendarClock } from 'lucide-react';
 import { triggerVibration } from '../utils/haptics';
 import { useApi } from '../context/ApiContext';
-import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 interface MediaCardProps {
     item: any;

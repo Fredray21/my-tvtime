@@ -263,6 +263,30 @@ func (r *Repository) DecrementEpisodeRewatch(userID string, tmdbSeriesID, season
 	return err
 }
 
+// GetWatchedCountBySeason renvoie un dictionnaire [numero_saison] => nombre_episodes_vus
+func (r *Repository) GetWatchedCountBySeason(userID string, seriesID int) (map[int]int, error) {
+    query := `
+        SELECT season_number, COUNT(*) as watched_count
+        FROM user_episodes 
+        WHERE user_id = $1 AND tmdb_series_id = $2 AND rewatch_count > 0
+        GROUP BY season_number
+    `
+    rows, err := r.db.Query(query, userID, seriesID)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    counts := make(map[int]int)
+    for rows.Next() {
+        var seasonNum, count int
+        if err := rows.Scan(&seasonNum, &count); err == nil {
+            counts[seasonNum] = count
+        }
+    }
+    return counts, nil
+}
+
 // Récupère les épisodes les plus récents vus (pour le "Latest")
 func (r *Repository) GetLatestWatchedEpisodes(userID string, limit, offset int) ([]EpisodeRecord, error) {
 	query := `

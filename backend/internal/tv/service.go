@@ -68,6 +68,8 @@ type TMDBSeasonShort struct {
 	PosterPath   string  `json:"poster_path"`
 	SeasonNumber int     `json:"season_number"`
 	VoteAverage  float64 `json:"vote_average"`
+
+	WatchedCount int     `json:"watched_count"`
 }
 
 type TMDBSpokenLanguage struct {
@@ -289,6 +291,13 @@ func (s *TVService) GetSeriesDetailsForUser(userID string, seriesID int) (*Serie
 	if err := json.Unmarshal(tmdbBytes, &tmdbSeries); err != nil {
 		return nil, err
 	}
+
+	watchedCounts, _ := s.repo.GetWatchedCountBySeason(userID, seriesID)
+    if watchedCounts != nil {
+        for i, season := range tmdbSeries.Seasons {
+            tmdbSeries.Seasons[i].WatchedCount = watchedCounts[season.SeasonNumber]
+        }
+    }
 
 	customSeries := &SeriesCustomResponse{
 		TMDBSeriesResult: tmdbSeries,

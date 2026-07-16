@@ -60,6 +60,29 @@ export const TVDetailsView = () => {
     const safeRuntime = series.episode_run_time && series.episode_run_time.length > 0 ? series.episode_run_time[0] : 0;
     const formattedRuntime = safeRuntime > 0 ? `${safeRuntime}m` : '';
 
+    // --- ALGORITHME DE SAISON PAR DÉFAUT ---
+    const sortedSeasons = series.seasons ? [...series.seasons].sort((a, b) => {
+        if (a.season_number === 0) return 1;
+        if (b.season_number === 0) return -1;
+        return a.season_number - b.season_number;
+    }) : [];
+
+    let defaultSeasonId = sortedSeasons[0]?.id;
+    let minTier = Infinity;
+
+    for (const season of sortedSeasons) {
+        if (season.season_number === 0 || season.episode_count === 0) continue; // On ignore les "Spéciaux" pour le focus par défaut
+        
+        // Le "Tier" indique combien de fois la saison a été ENTIÈREMENT vue (0 = pas finie, 1 = vue 1 fois, etc.)
+        const tier = Math.floor((season.watched_count || 0) / season.episode_count);
+        
+        // On trouve la première saison avec le Tier le plus bas
+        if (tier < minTier) {
+            minTier = tier;
+            defaultSeasonId = season.id;
+        }
+    }
+
     return (
         <div className="min-h-screen bg-zinc-950 text-white pb-24">
             {/* HEADER BACKGROUND IMAGE */}
@@ -118,7 +141,7 @@ export const TVDetailsView = () => {
                     )}
                 </div>
 
-                {/* --- NAVIGATION DES SAISONS (APPEL DU COMPOSANT) --- */}
+                {/* --- NAVIGATION DES SAISONS --- */}
                 <div className="mb-10">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-bold text-white">Tous les épisodes</h2>
@@ -127,21 +150,14 @@ export const TVDetailsView = () => {
                         </div>
                     </div>
                     
-                    {series.seasons && [...series.seasons]
-                        .sort((a, b) => {
-                            if (a.season_number === 0) return 1;
-                            if (b.season_number === 0) return -1;
-                            return a.season_number - b.season_number;
-                        })
-                        .map((season, index) => (
-                            <SeasonAccordion 
-                                key={season.id} 
-                                seriesId={seriesId} 
-                                season={season} 
-                                defaultOpen={index === 0} 
-                            />
-                        ))
-                    }
+                    {sortedSeasons.map((season) => (
+                        <SeasonAccordion 
+                            key={season.id} 
+                            seriesId={seriesId} 
+                            season={season} 
+                            defaultOpen={season.id === defaultSeasonId} // 🟢 Ouvre intelligemment la bonne saison
+                        />
+                    ))}
                 </div>
 
                 {/* --- RECOMMANDATIONS --- */}

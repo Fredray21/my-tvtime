@@ -32,7 +32,6 @@ export const TVDetailsView = () => {
         enabled: !isNaN(seriesId) && !!series,
     });
 
-    // Mutation globale
     const globalMutation = useMutation({
         mutationFn: async (variables: { newStatus: UpdateStatusDTO['status_local']; isFavorite: boolean }) => {
             if (variables.newStatus === 'not_tracked') {
@@ -46,7 +45,42 @@ export const TVDetailsView = () => {
                 rewatch_count: 0
             });
         },
-        onSuccess: () => {
+        onMutate: async (variables) => {
+            await queryClient.cancelQueries({ queryKey: ['tv', seriesId] });
+            const previousSeries = queryClient.getQueryData(['tv', seriesId]);
+
+            queryClient.setQueryData(['tv', seriesId], (old: any) => {
+                if (!old) return old;
+                
+                let updatedSeasons = old.seasons;
+                
+                // Si l'utilisateur clique sur "Ne plus suivre"
+                if (variables.newStatus === 'not_tracked' && old.seasons) {
+                    // 1. On remet tous les compteurs de saisons à 0 instantanément
+                    updatedSeasons = old.seasons.map((s: any) => ({ ...s, watched_count: 0 }));
+                    
+                    // 2. On vide le cache précis des épisodes pour forcer un rechargement si on ré-ouvre l'accordéon
+                    queryClient.removeQueries({ queryKey: ['tv', seriesId, 'season'] });
+                }
+
+                return {
+                    ...old,
+                    status_local: variables.newStatus,
+                    is_favorite: variables.newStatus === 'not_tracked' ? false : variables.isFavorite,
+                    seasons: updatedSeasons
+                };
+            });
+
+            return { previousSeries };
+        },
+        onError: (_, __, context) => {
+            // En cas d'erreur réseau, on remet les anciennes données
+            if (context?.previousSeries) {
+                queryClient.setQueryData(['tv', seriesId], context.previousSeries);
+            }
+        },
+        onSettled: () => {
+            // Dans tous les cas, on re-synchronise avec le backend à la fin
             queryClient.invalidateQueries({ queryKey: ['tv', seriesId] });
             queryClient.invalidateQueries({ queryKey: ['watchlist'] });
         }
@@ -71,12 +105,10 @@ export const TVDetailsView = () => {
     let minTier = Infinity;
 
     for (const season of sortedSeasons) {
-        if (season.season_number === 0 || season.episode_count === 0) continue; // On ignore les "Spéciaux" pour le focus par défaut
+        if (season.season_number === 0 || season.episode_count === 0) continue;
         
-        // Le "Tier" indique combien de fois la saison a été ENTIÈREMENT vue (0 = pas finie, 1 = vue 1 fois, etc.)
         const tier = Math.floor((season.watched_count || 0) / season.episode_count);
         
-        // On trouve la première saison avec le Tier le plus bas
         if (tier < minTier) {
             minTier = tier;
             defaultSeasonId = season.id;
@@ -155,7 +187,7 @@ export const TVDetailsView = () => {
                             key={season.id} 
                             seriesId={seriesId} 
                             season={season} 
-                            defaultOpen={season.id === defaultSeasonId} // 🟢 Ouvre intelligemment la bonne saison
+                            defaultOpen={season.id === defaultSeasonId}
                         />
                     ))}
                 </div>

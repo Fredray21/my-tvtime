@@ -83,7 +83,7 @@ func main() {
 			movieRoutes.GET("/watchlist", movieHandler.HandleGetWatchlist)
 			movieRoutes.GET("/:id/similar", movieHandler.HandleGetSimilarMovies)
 			movieRoutes.GET("/upcoming", movieHandler.HandleGetUpcomingMovies)
-			moviesGroup.GET("/:id/credits", movieHandler.HandlerGetMovieCredits)
+			movieRoutes.GET("/:id/credits", movieHandler.HandlerGetMovieCredits)
 		}
 
 		tvRoutes := api.Group("/tvs")

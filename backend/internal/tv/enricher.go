@@ -26,6 +26,11 @@ func (s *TVService) EnrichSeriesRecords(userID string, records []SeriesIdentifie
 				return
 			}
 
+			season, episode, name, err := s.repo.GetNextEpisodeForSeries(userID, rec.GetTMDBID())
+			if err != nil {
+				fmt.Printf("Erreur BDD prochain épisode pour série %d: %v\n", rec.GetTMDBID(), err)
+			}
+
 			enrichedResults[index] = SeriesCustomResponse{
 				TMDBSeriesResult: tmdbSeries,
 				MediaType:        "tv",
@@ -33,6 +38,10 @@ func (s *TVService) EnrichSeriesRecords(userID string, records []SeriesIdentifie
 				IsFavorite:       rec.GetIsFavorite(),
 				CreatedAt:        rec.GetCreatedAt(),
 				UpdatedAt:        rec.GetUpdatedAt(),
+
+				NextSeasonNumber:  season,
+                NextEpisodeNumber: episode,
+                NextEpisodeName:   name,
 			}
 		}(i, record)
 	}

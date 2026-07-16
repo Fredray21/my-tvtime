@@ -65,6 +65,10 @@ export interface MediaCustomResponse extends TMDBMediaResult {
     media_type?: 'movie' | 'tv';
     created_at?: string;
     updated_at?: string;
+    
+    next_season_number?: number;
+    next_episode_number?: number;
+    next_episode_name?: string;
 }
 
 export interface WatchlistPaginatedResponse {

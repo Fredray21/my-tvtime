@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Heart, CheckCircle, Eye, CalendarClock } from 'lucide-react';
 import { triggerVibration } from '../utils/haptics';
+import { useApi } from '../context/ApiContext';
 
 interface MediaCardProps {
     item: any;
@@ -16,6 +17,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     layout = 'card',
     onStatusChange
 }) => {
+    const api = useApi();
     const title = item.title || item.name || 'Sans titre';
     const imagePath = item.poster_path || item.profile_path;
     const imageUrl = imagePath
@@ -82,7 +84,16 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     const handleTouchEnd = () => {
         if (swipeOffset > 60 && onStatusChange) {
             triggerVibration([50, 100, 50]);
-            onStatusChange(item.id || item.tmdb_id, 'watched');
+
+            if (mediaType === 'tv' && item.next_episode_number) {
+                api.media.watchEpisode(item.id, item.next_season_number, item.next_episode_number)
+                .then(() => queryClient.invalidateQueries({ queryKey: ['watchlist'] }));
+            } else {
+                onStatusChange(item.id || item.tmdb_id, 'watched');
+            }
+
+
+
         }
         setSwipeOffset(0);
         setTouchStartX(null);
@@ -109,15 +120,25 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 <div className="w-20 sm:w-24 aspect-[2/3] flex-shrink-0 bg-zinc-950 relative">
                     <img src={imageUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
                 </div>
-                <div className="p-3 flex flex-col justify-center flex-grow min-w-0">
-                    <h3 className="font-medium text-sm sm:text-base text-zinc-200 line-clamp-1 group-hover:text-white">{title}</h3>
-                    {item.episodes && (
-                        <div className="text-xs text-zinc-500 mt-1">
-                            S{item.seasons[0]}E{item.episodes.join(', ')}
-                        </div>
-                    )}
-                    {year && <p className="text-xs text-zinc-500 mt-1">{year}</p>}
 
+                <div className="p-3 flex flex-col justify-center flex-grow min-w-0">
+                    {mediaType === 'tv' && item.next_episode_number ? (
+                        <div className="flex flex-col">
+                            <h3 className="font-medium text-sm sm:text-base text-white line-clamp-1">
+                                S{item.next_season_number} | E{item.next_episode_number}
+                            </h3>
+                            <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">
+                                {item.next_episode_name || title}
+                            </p>
+                        </div>
+                    ) : (
+                        <h3 className="font-medium text-sm sm:text-base text-zinc-200 line-clamp-1 group-hover:text-white">
+                            {title}
+                        </h3>
+                    )}
+
+                    {year && !item.next_episode_number && <p className="text-xs text-zinc-500 mt-1">{year}</p>}
+                    
                     {!isPerson && item.vote_average > 0 && (
                         <div className="mt-2 text-amber-400 text-xs font-bold flex items-center gap-1">
                             <Star fill="currentColor" size={12} /> {item.vote_average.toFixed(1)}
@@ -231,7 +252,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 <div className="p-2 pt-1.5 z-10 relative">
                     <button
                         onClick={(e) => {
-                            e.preventDefault(); 
+                            e.preventDefault();
                             e.stopPropagation();
                             triggerVibration(item.status_local === 'watchlist' ? [50, 80, 20] : [20, 80, 20]);
                             onStatusChange(item.id || item.tmdb_id, item.status_local === 'watchlist' ? 'watched' : 'watchlist')

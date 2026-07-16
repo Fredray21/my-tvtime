@@ -123,6 +123,10 @@ type SeriesCustomResponse struct {
 	MediaType   string    `json:"media_type"`
 	CreatedAt   time.Time `json:"created_at,omitempty"`
 	UpdatedAt   time.Time `json:"updated_at,omitempty"`
+
+	NextSeasonNumber  int `json:"next_season_number"`
+    NextEpisodeNumber int `json:"next_episode_number"`
+    NextEpisodeName   string `json:"next_episode_name"`
 }
 
 // Structures pour les saisons et épisodes (Celles qu'il manquait !)

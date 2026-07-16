@@ -25,7 +25,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
     const queryClient = useQueryClient();
 
     const [activeTab, setActiveTab] = useState<'to_watch' | 'upcoming'>('to_watch');
-    const [viewMode, setViewMode] = useLocalStorage<'card' | 'list'>('watchlist_view_mode', 'card');
+    const [viewMode, setViewMode] = useLocalStorage<'card' | 'list'>(`watchlist_view_mode_${mediaType}`, 'card');
 
     const {
         data,
@@ -83,6 +83,8 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['watchlist', mediaType] });
+            queryClient.invalidateQueries({ queryKey: ['userStats'] });
+            queryClient.invalidateQueries({ queryKey: ['latestMedias'] });
         },
     });
 

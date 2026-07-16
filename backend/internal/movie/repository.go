@@ -274,9 +274,3 @@ func (r *Repository) GetUpcomingMoviesRecords(userID string, page int, limit int
 	}
 	return records, nil
 }
-
-// Dans movie_repository.go
-func (r *Repository) GetMovieCredits(tmdbMovieID int) ([]byte, error) {
-    endpoint := fmt.Sprintf("/movie/%d/credits?api_key=%s&language=fr-FR", tmdbMovieID, r.apiKey)
-    return r.tmdbClient.DoRequest(endpoint)
-}

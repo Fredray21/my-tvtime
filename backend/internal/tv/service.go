@@ -536,7 +536,7 @@ func (s *TVService) GetUpcomingSeries(userID string, page int) ([]SeriesCustomRe
 	return s.EnrichSeriesRecords(userID, identifiers)
 }
 
-func (s *MovieService) GetSerieCredits(tmdbMovieID int) (map[string]interface{}, error) {
+func (s *TVService) GetSerieCredits(tmdbMovieID int) (map[string]interface{}, error) {
     data, err := s.tmdbClient.GetCredits(tmdbMovieID, "tv")
     if err != nil {
         return nil, err

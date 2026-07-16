@@ -115,7 +115,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
             setSwipeOffset(window.innerWidth);
             setTimeout(() => {
                 handleAction();
-            }, 300);
+            }, 200);
         } else {
             setSwipeOffset(0);
         }
@@ -179,7 +179,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                                 setSwipeOffset(window.innerWidth);
                                 setTimeout(() => {
                                     handleAction();
-                                }, 300);
+                                }, 200);
                             }}
                             className="w-10 h-10 flex items-center justify-center bg-zinc-800/80 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-500 rounded-full transition-all border border-zinc-700/50 backdrop-blur-sm"
                         >

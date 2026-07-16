@@ -29,7 +29,6 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     const isPerson = mediaType === 'person';
     const targetUrl = `/${mediaType}/${item.id || item.tmdb_id}`;
 
-    // 🟢 CALCUL DU COMPTE À REBOURS (J-X)
     const getDaysLeft = () => {
         const targetDateStr = item.next_episode_to_air?.air_date || item.release_date;
         if (!targetDateStr) return null;
@@ -45,15 +44,16 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     };
     const daysLeft = getDaysLeft();
 
-    // 🟢 LOGIQUE DU SWIPE (Uniquement en mode Liste)
     const [swipeOffset, setSwipeOffset] = useState(0);
     const [touchStartX, setTouchStartX] = useState<number | null>(null);
     const [touchStartY, setTouchStartY] = useState<number | null>(null);
+    const [isDragging, setIsDragging] = useState(false); // Verrou d'axe
 
     const handleTouchStart = (e: React.TouchEvent) => {
         if (layout !== 'list' || !onStatusChange || isPerson || item.status_local === 'watched') return;
         setTouchStartX(e.touches[0].clientX);
         setTouchStartY(e.touches[0].clientY);
+        setIsDragging(false); // On réinitialise le verrou au toucher
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
@@ -61,9 +61,21 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         const xDiff = e.touches[0].clientX - touchStartX;
         const yDiff = e.touches[0].clientY - touchStartY;
 
-        // Bloque le swipe vertical (pour pouvoir scroller la page normalement)
-        if (Math.abs(xDiff) > Math.abs(yDiff) && xDiff > 0) {
-            setSwipeOffset(Math.min(xDiff, 80)); // Limite le déplacement à 80px
+        // Détermination de l'axe au début du mouvement
+        if (!isDragging) {
+            // Si on va plus vers la droite que vers le bas/haut
+            if (Math.abs(xDiff) > Math.abs(yDiff) && xDiff > 0) {
+                setIsDragging(true); // On verrouille l'intention de swiper
+            } else {
+                return; // C'est un scroll vertical, on laisse le navigateur faire
+            }
+        }
+
+        // Si on est verrouillé en mode swipe horizontal
+        if (xDiff > 0) {
+            // Effet élastique : après 80px, ça devient plus "dur" de tirer
+            const offset = xDiff > 80 ? 80 + (xDiff - 80) * 0.2 : xDiff;
+            setSwipeOffset(offset);
         }
     };
 
@@ -75,11 +87,12 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         setSwipeOffset(0);
         setTouchStartX(null);
         setTouchStartY(null);
+        setIsDragging(false);
     };
 
-    // Empêche le clic accidentel (navigation) quand on relâche le swipe
+    // Empêche le clic accidentel quand on relâche le doigt après un swipe
     const handleClick = (e: React.MouseEvent) => {
-        if (swipeOffset > 0) {
+        if (swipeOffset > 0 || isDragging) {
             e.preventDefault();
         }
     };
@@ -90,7 +103,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     if (layout === 'list') {
         const content = (
             <div
-                style={{ transform: `translateX(${swipeOffset}px)`, transition: swipeOffset === 0 ? 'transform 0.3s ease' : 'none' }}
+                style={{ transform: `translateX(${swipeOffset}px)`, transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none' }}
                 className="relative w-full bg-zinc-900/50 border border-zinc-800/40 rounded-xl overflow-hidden flex group transition-all hover:border-zinc-700 h-full"
             >
                 <div className="w-20 sm:w-24 aspect-[2/3] flex-shrink-0 bg-zinc-950 relative">
@@ -128,7 +141,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                     {onStatusChange && !isPerson && item.status_local !== 'watched' && (
                         <button
                             onClick={(e) => {
-                                e.preventDefault(); // Empêche d'ouvrir la page détail
+                                e.preventDefault();
                                 e.stopPropagation();
                                 triggerVibration([20, 80, 20]);
                                 onStatusChange(item.id || item.tmdb_id, 'watched');
@@ -147,12 +160,12 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
-                className="relative overflow-hidden rounded-xl cursor-pointer"
+                style={{ touchAction: 'pan-y' }}
+                className="relative overflow-hidden rounded-xl cursor-pointer select-none"
             >
-                {/* 🟢 FOND VERT (RÉVÉLÉ PENDANT LE SWIPE) */}
                 {swipeOffset > 0 && (
                     <div className="absolute inset-0 bg-emerald-500 flex items-center px-6 rounded-xl">
-                        <span className="text-white font-bold flex items-center gap-2">
+                        <span className={`text-white font-bold flex items-center gap-2 transition-transform duration-200 ${swipeOffset > 60 ? 'scale-110' : 'scale-100 opacity-70'}`}>
                             <Check size={20} strokeWidth={3} /> Marquer vu
                         </span>
                     </div>
@@ -177,14 +190,12 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                     loading="lazy"
                 />
 
-                {/* 🟢 NOTE (En haut à gauche) */}
                 {!isPerson && item.vote_average > 0 && (
                     <div className="absolute top-2 left-2 flex items-center gap-1 bg-zinc-950/80 text-amber-400 font-bold px-1.5 py-0.5 rounded text-[10px] backdrop-blur-sm border border-zinc-800">
                         <Star fill="currentColor" size={10} /> {item.vote_average.toFixed(1)}
                     </div>
                 )}
 
-                {/* 🟢 FAVORIS ET J-X (En haut à droite) */}
                 <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
                     {item.is_favorite && (
                         <div className="bg-black/90 text-red-500 p-1.5 rounded-full shadow-md backdrop-blur-sm">
@@ -220,7 +231,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 <div className="p-2 pt-1.5 z-10 relative">
                     <button
                         onClick={(e) => {
-                            e.preventDefault(); // Empêche d'ouvrir la page détail
+                            e.preventDefault(); 
                             e.stopPropagation();
                             triggerVibration(item.status_local === 'watchlist' ? [50, 80, 20] : [20, 80, 20]);
                             onStatusChange(item.id || item.tmdb_id, item.status_local === 'watchlist' ? 'watched' : 'watchlist')

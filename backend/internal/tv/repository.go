@@ -393,7 +393,7 @@ func (r *Repository) SaveEpisodeMetadata(seriesID int, seasonNum int, episodeNum
 
 // GetNextEpisodeForSeries trouve le premier épisode (par saison et numéro) 
 // qui n'a pas encore été vu par l'utilisateur pour une série donnée.
-func (r *Repository) GetNextEpisodeForSeries(userID string, tmdbSeriesID int) (season int, episode int, name string, err error) {
+func (r *Repository) GetNextEpisodeForSeries(userID string, tmdbSeriesID int) (int, int, string, error) {
 	query := `
 		SELECT em.season_number, em.episode_number, em.name
 		FROM episode_metadata em
@@ -408,6 +408,7 @@ func (r *Repository) GetNextEpisodeForSeries(userID string, tmdbSeriesID int) (s
 		LIMIT 1
 	`
 
+	var season, episode int
 	var name sql.NullString
     err = r.db.QueryRow(query, userID, tmdbSeriesID).Scan(&season, &episode, &name)
 

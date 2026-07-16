@@ -126,7 +126,6 @@ type SeriesCustomResponse struct {
 
 	NextSeasonNumber  int `json:"next_season_number"`
     NextEpisodeNumber int `json:"next_episode_number"`
-    NextEpisodeName   string `json:"next_episode_name"`
 }
 
 // Structures pour les saisons et épisodes (Celles qu'il manquait !)

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Star, Heart, CheckCircle, Eye, CalendarClock } from 'lucide-react';
 import { triggerVibration } from '../utils/haptics';
 import { useApi } from '../context/ApiContext';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 interface MediaCardProps {
     item: any;
@@ -11,6 +11,20 @@ interface MediaCardProps {
     layout?: 'card' | 'list';
     onStatusChange?: (mediaId: number, newStatus: 'watchlist' | 'watched') => void;
 }
+
+const NextEpisodeInfo = ({ seriesId, season, episode }: { seriesId: number, season: number, episode: number }) => {
+    const api = useApi();
+    const { data, isLoading } = useQuery({
+        queryKey: ['episodeName', seriesId, season, episode],
+        queryFn: () => api.media.getSeasonDetails(seriesId, season)
+            .then(res => res.episodes.find(e => e.episode_number === episode)),
+        staleTime: 1000 * 60 * 60,
+    });
+
+    if (isLoading) return <span className="text-zinc-500 animate-pulse">Chargement...</span>;
+    return <span className="line-clamp-1">{data?.name}</span>;
+};
+
 
 export const MediaCard: React.FC<MediaCardProps> = ({
     item,
@@ -89,13 +103,10 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
             if (mediaType === 'tv' && item.next_episode_number) {
                 api.media.watchEpisode(item.id, item.next_season_number, item.next_episode_number)
-                .then(() => queryClient.invalidateQueries({ queryKey: ['watchlist'] }));
+                    .then(() => queryClient.invalidateQueries({ queryKey: ['watchlist'] }));
             } else {
                 onStatusChange(item.id || item.tmdb_id, 'watched');
             }
-
-
-
         }
         setSwipeOffset(0);
         setTouchStartX(null);
@@ -124,23 +135,25 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 </div>
 
                 <div className="p-3 flex flex-col justify-center flex-grow min-w-0">
-                    {mediaType === 'tv' && item.next_episode_number ? (
+                    {mediaType === 'tv' && item.next_episode_number > 0 ? (
                         <div className="flex flex-col">
-                            <h3 className="font-medium text-sm sm:text-base text-white line-clamp-1">
+                            <h3 className="font-medium text-sm text-white">
                                 S{item.next_season_number} | E{item.next_episode_number}
                             </h3>
-                            <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">
-                                {item.next_episode_name || title}
+                            <p className="text-xs text-zinc-400 mt-0.5">
+                                <NextEpisodeInfo
+                                    seriesId={item.id}
+                                    season={item.next_season_number}
+                                    episode={item.next_episode_number}
+                                />
                             </p>
                         </div>
                     ) : (
-                        <h3 className="font-medium text-sm sm:text-base text-zinc-200 line-clamp-1 group-hover:text-white">
-                            {title}
-                        </h3>
+                        <h3 className="text-zinc-200">{title}</h3>
                     )}
 
                     {year && !item.next_episode_number && <p className="text-xs text-zinc-500 mt-1">{year}</p>}
-                    
+
                     {!isPerson && item.vote_average > 0 && (
                         <div className="mt-2 text-amber-400 text-xs font-bold flex items-center gap-1">
                             <Star fill="currentColor" size={12} /> {item.vote_average.toFixed(1)}

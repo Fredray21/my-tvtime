@@ -393,31 +393,26 @@ func (r *Repository) SaveEpisodeMetadata(seriesID int, seasonNum int, episodeNum
 
 // GetNextEpisodeForSeries trouve le premier épisode (par saison et numéro) 
 // qui n'a pas encore été vu par l'utilisateur pour une série donnée.
-func (r *Repository) GetNextEpisodeForSeries(userID string, tmdbSeriesID int) (int, int, string, error) {
-	query := `
-		SELECT em.season_number, em.episode_number, em.name
-		FROM episode_metadata em
-		LEFT JOIN user_episodes ue 
-			ON em.tmdb_series_id = ue.tmdb_series_id 
-			AND em.season_number = ue.season_number 
-			AND em.episode_number = ue.episode_number
-			AND ue.user_id = $1
-		WHERE em.tmdb_series_id = $2
-		  AND ue.id IS NULL
-		ORDER BY em.season_number ASC, em.episode_number ASC
-		LIMIT 1
-	`
+func (r *Repository) GetNextEpisodeForSeries(userID string, tmdbSeriesID int) (int, int, error) {
+    query := `
+        SELECT em.season_number, em.episode_number
+        FROM episode_metadata em
+        LEFT JOIN user_episodes ue 
+            ON em.tmdb_series_id = ue.tmdb_series_id 
+            AND em.season_number = ue.season_number 
+            AND em.episode_number = ue.episode_number
+            AND ue.user_id = $1
+        WHERE em.tmdb_series_id = $2
+          AND ue.id IS NULL
+        ORDER BY em.season_number ASC, em.episode_number ASC
+        LIMIT 1
+    `
 
-	var season, episode int
-	var name sql.NullString
-    err := r.db.QueryRow(query, userID, tmdbSeriesID).Scan(&season, &episode, &name)
-
-	if err == sql.ErrNoRows {
-		return 0, 0, "", nil // Aucun épisode restant à voir
-	}
-	if err != nil {
-		return 0, 0, "", err
-	}
-
-	return season, episode, name.String, nil
+    var season, episode int
+    err := r.db.QueryRow(query, userID, tmdbSeriesID).Scan(&season, &episode)
+    
+    if err == sql.ErrNoRows {
+        return 0, 0, nil 
+    }
+    return season, episode, err
 }

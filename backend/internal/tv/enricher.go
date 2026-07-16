@@ -26,7 +26,7 @@ func (s *TVService) EnrichSeriesRecords(userID string, records []SeriesIdentifie
 				return
 			}
 
-			season, episode, name, err := s.repo.GetNextEpisodeForSeries(userID, rec.GetTMDBID())
+			season, episode, err := s.repo.GetNextEpisodeForSeries(userID, rec.GetTMDBID())
 			if err != nil {
 				fmt.Printf("Erreur BDD prochain épisode pour série %d: %v\n", rec.GetTMDBID(), err)
 			}
@@ -41,7 +41,6 @@ func (s *TVService) EnrichSeriesRecords(userID string, records []SeriesIdentifie
 
 				NextSeasonNumber:  season,
                 NextEpisodeNumber: episode,
-                NextEpisodeName:   name,
 			}
 		}(i, record)
 	}

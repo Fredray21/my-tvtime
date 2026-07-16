@@ -68,7 +68,6 @@ export interface MediaCustomResponse extends TMDBMediaResult {
     
     next_season_number?: number;
     next_episode_number?: number;
-    next_episode_name?: string;
 }
 
 export interface WatchlistPaginatedResponse {

@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, ScrollRestoration } from 'react-router-dom';
+import { useMemo } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SignedIn, SignedOut, SignIn } from '@clerk/clerk-react';
 import { AppLayout } from './components/AppLayout';
@@ -26,85 +27,99 @@ const queryClient = new QueryClient({
     },
 });
 
-
 export const App = () => {
     const api = useApi();
 
+    // On utilise useMemo pour créer le routeur une seule fois 
+    // tout en conservant l'accès à ta variable "api"
+    const router = useMemo(() => createBrowserRouter([
+        {
+            element: (
+                <>
+                    <ScrollRestoration />
+                    
+                    <SignedOut>
+                        <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4">
+                            <SignIn routing="hash" />
+                        </div>
+                    </SignedOut>
+
+                    <SignedIn>
+                        <AppLayout />
+                    </SignedIn>
+                </>
+            ),
+            // Les routes enfants qui s'afficheront dans l'Outlet de AppLayout
+            children: [
+                { path: "/", element: <WatchlistView key={"movie"} mediaType="movie" /> },
+                { path: "/tv", element: <WatchlistView key={"tv"} mediaType="tv" /> },
+                { path: "/search", element: <SearchView /> },
+                { path: "/movie/:id", element: <MovieDetailsView /> },
+                { path: "/tv/:id", element: <TVDetailsView /> },
+                { 
+                    path: "/favorites/movies", 
+                    element: (
+                        <MediaGridPage
+                            title="Films Coups de cœur"
+                            icon={Heart}
+                            mediaType="movie"
+                            queryKey={['favorites', 'movie', 'grid']}
+                            queryFn={() => api.media.getFavorites('movie')}
+                            emptyTitle="Aucun coup de cœur"
+                            emptyDescription="Tu n'as pas encore ajouté de film à tes favoris."
+                        />
+                    )
+                },
+                { 
+                    path: "/favorites/tv", 
+                    element: (
+                        <MediaGridPage
+                            title="Séries Coups de cœur"
+                            icon={Heart}
+                            mediaType="tv"
+                            queryKey={['favorites', 'tv', 'grid']}
+                            queryFn={() => api.media.getFavorites('tv')}
+                            emptyTitle="Aucun coup de cœur"
+                            emptyDescription="Tu n'as pas encore ajouté de série à tes favoris."
+                        />
+                    )
+                },
+                { 
+                    path: "/watched/movies", 
+                    element: (
+                        <MediaGridPage
+                            title="Derniers films vus"
+                            icon={Clock}
+                            mediaType="movie"
+                            queryKey={['latest', 'movie', 'infinite']}
+                            queryFn={({ pageParam }) => api.user.getLatestMedias('movie', pageParam)}
+                            emptyTitle="Historique vide"
+                            emptyDescription="Tu n'as pas encore regardé de film."
+                        />
+                    )
+                },
+                { 
+                    path: "/watched/tv", 
+                    element: (
+                        <MediaGridPage
+                            title="Dernières séries vues"
+                            icon={Clock}
+                            mediaType="tv"
+                            queryKey={['latest', 'tv', 'infinite']}
+                            queryFn={({ pageParam }) => api.user.getLatestMedias('tv', pageParam)}
+                            emptyTitle="Historique vide"
+                            emptyDescription="Tu n'as pas encore regardé d'épisode."
+                        />
+                    )
+                },
+                { path: "/profile", element: <ProfileView /> },
+            ]
+        }
+    ]), [api]);
+
     return (
         <QueryClientProvider client={queryClient}>
-            <BrowserRouter>
-                <SignedOut>
-                    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4">
-                        <SignIn routing="hash" />
-                    </div>
-                </SignedOut>
-
-                <SignedIn>
-                    <Routes>
-                        <Route element={<AppLayout />}>
-                            <Route path="/" element={<WatchlistView key={"movie"} mediaType="movie" />} />
-                            <Route path="/tv" element={<WatchlistView key={"tv"} mediaType="tv" />} />
-
-                            <Route path="/search" element={<SearchView />} />
-
-                            <Route path="/movie/:id" element={<MovieDetailsView />} />
-                            <Route path="/tv/:id" element={<TVDetailsView />} />
-
-                            <Route path="/favorites/movies" element={
-                                <MediaGridPage
-                                    title="Films Coups de cœur"
-                                    icon={Heart}
-                                    mediaType="movie"
-                                    queryKey={['favorites', 'movie', 'grid']}
-                                    queryFn={() => api.media.getFavorites('movie')}
-                                    emptyTitle="Aucun coup de cœur"
-                                    emptyDescription="Tu n'as pas encore ajouté de film à tes favoris."
-                                />
-                            } />
-
-                            <Route path="/favorites/tv" element={
-                                <MediaGridPage
-                                    title="Séries Coups de cœur"
-                                    icon={Heart}
-                                    mediaType="tv"
-                                    queryKey={['favorites', 'tv', 'grid']}
-                                    queryFn={() => api.media.getFavorites('tv')}
-                                    emptyTitle="Aucun coup de cœur"
-                                    emptyDescription="Tu n'as pas encore ajouté de série à tes favoris."
-                                />
-                            } />
-
-                            {/* --- ROUTES HISTORIQUE (LATEST) --- */}
-                            <Route path="/watched/movies" element={
-                                <MediaGridPage
-                                    title="Derniers films vus"
-                                    icon={Clock}
-                                    mediaType="movie"
-                                    queryKey={['latest', 'movie', 'infinite']}
-                                    queryFn={({ pageParam }) => api.user.getLatestMedias('movie', pageParam)}
-                                    emptyTitle="Historique vide"
-                                    emptyDescription="Tu n'as pas encore regardé de film."
-                                />
-                            } />
-
-                            <Route path="/watched/tv" element={
-                                <MediaGridPage
-                                    title="Dernières séries vues"
-                                    icon={Clock}
-                                    mediaType="tv"
-                                    queryKey={['latest', 'tv', 'infinite']}
-                                    queryFn={({ pageParam }) => api.user.getLatestMedias('tv', pageParam)}
-                                    emptyTitle="Historique vide"
-                                    emptyDescription="Tu n'as pas encore regardé d'épisode."
-                                />
-                            } />
-
-                            <Route path="/profile" element={<ProfileView />} />
-                        </Route>
-                    </Routes>
-                </SignedIn>
-
-            </BrowserRouter>
+            <RouterProvider router={router} />
         </QueryClientProvider>
     );
 };

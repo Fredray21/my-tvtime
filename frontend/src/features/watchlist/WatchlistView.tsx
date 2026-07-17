@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../../context/ApiContext';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 import { MediaCard } from '../../components/MediaCard';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 import { triggerVibration } from '../../utils/haptics';

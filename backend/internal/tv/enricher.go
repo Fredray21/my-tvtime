@@ -1,7 +1,6 @@
 package tv
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 )
@@ -15,32 +14,21 @@ func (s *TVService) EnrichSeriesRecords(userID string, records []SeriesIdentifie
 		go func(index int, rec SeriesIdentifier) {
 			defer wg.Done()
 
-			tmdbBytes, err := s.tmdbClient.GetSeriesDetails(rec.GetTMDBID())
+			tmdbSeries, nextSeason, nextEpisode, err := s.fetchAndEnrichTMDBSeries(userID, rec.GetTMDBID())
 			if err != nil {
-				fmt.Printf("Erreur TMDB détails pour série %d: %v\n", rec.GetTMDBID(), err)
+				fmt.Printf("Erreur pour série %d: %v\n", rec.GetTMDBID(), err)
 				return
-			}
-
-			var tmdbSeries TMDBSeriesResult
-			if err := json.Unmarshal(tmdbBytes, &tmdbSeries); err != nil {
-				return
-			}
-
-			season, episode, err := s.repo.GetNextEpisodeForSeries(userID, rec.GetTMDBID())
-			if err != nil {
-				fmt.Printf("Erreur BDD prochain épisode pour série %d: %v\n", rec.GetTMDBID(), err)
 			}
 
 			enrichedResults[index] = SeriesCustomResponse{
-				TMDBSeriesResult: tmdbSeries,
-				MediaType:        "tv",
-				StatusLocal:      rec.GetStatus(),
-				IsFavorite:       rec.GetIsFavorite(),
-				CreatedAt:        rec.GetCreatedAt(),
-				UpdatedAt:        rec.GetUpdatedAt(),
-
-				NextSeasonNumber:  season,
-                NextEpisodeNumber: episode,
+				TMDBSeriesResult:  tmdbSeries,
+				MediaType:         "tv",
+				StatusLocal:       rec.GetStatus(),
+				IsFavorite:        rec.GetIsFavorite(),
+				CreatedAt:         rec.GetCreatedAt(),
+				UpdatedAt:         rec.GetUpdatedAt(),
+				NextSeasonNumber:  nextSeason,
+				NextEpisodeNumber: nextEpisode,
 			}
 		}(i, record)
 	}

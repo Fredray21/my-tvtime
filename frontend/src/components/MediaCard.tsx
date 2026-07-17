@@ -1,36 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Heart, CheckCircle, Eye, CalendarClock, Loader } from 'lucide-react';
 import { triggerVibration } from '../utils/haptics';
-import { useApi } from '../context/ApiContext';
-import { useQuery } from '@tanstack/react-query';
 
 interface MediaCardProps {
     item: any;
     fallbackMediaType?: 'movie' | 'tv' | 'person';
     layout?: 'card' | 'list';
-    onStatusChange?: (mediaId: number, newStatus: 'watchlist' | 'watched') => void;
-    onWatchEpisode?: (id: number, season: number, episode: number) => void;
+    isUpcoming?: boolean;
+    onStatusChange?: (mediaId: number, newStatus: 'watchlist' | 'watched') => Promise<void> | void;
+    onWatchEpisode?: (id: number, season: number, episode: number) => Promise<void> | void;
 }
 
-const NextEpisodeInfo = ({ seriesId, season, episode }: { seriesId: number, season: number, episode: number }) => {
-    const api = useApi();
-    
-    const { data } = useQuery({
-        queryKey: ['episodeName', seriesId, season, episode],
-        queryFn: () => api.media.getSeasonDetails(seriesId, season)
-            .then(res => res.episodes.find(e => e.episode_number === episode)),
-        staleTime: Infinity,
-        gcTime: 1000 * 60 * 60,
-    });
-
-    return <span className="line-clamp-1">{data?.name || `S${season} | E${episode}`}</span>;
+type TMDBSeason = {
+    air_date: string;
+    episode_count: number;
+    id: number;
+    name: string;
+    overview: string;
+    poster_path: string;
+    season_number: number;
+    vote_average: number;
+    watched_count: number;
+    max_episode_watched?: number
 };
 
 export const MediaCard: React.FC<MediaCardProps> = ({
     item,
     fallbackMediaType = 'movie',
     layout = 'card',
+    isUpcoming = false,
     onStatusChange,
     onWatchEpisode
 }) => {
@@ -66,22 +65,63 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     const [touchStartX, setTouchStartX] = useState<number | null>(null);
     const [touchStartY, setTouchStartY] = useState<number | null>(null);
     const [isDragging, setIsDragging] = useState(false);
-    
+
     const [isProcessing, setIsProcessing] = useState(false);
 
-    useEffect(() => {
-        setSwipeOffset(0);
-        setIsDragging(false);
-        setIsProcessing(false);
-    }, [item.next_episode_number, item.status_local]);
+    let nextSeason = item.next_season_number;
+    let nextEpisode = item.next_episode_number;
 
-    const handleAction = () => {
+    if (isUpcoming && item.next_episode_to_air) {
+        // 1. Par défaut, on cible l'épisode qui va sortir
+        nextSeason = item.next_episode_to_air.season_number;
+        nextEpisode = item.next_episode_to_air.episode_number;
+
+        // 2. On cherche les infos de cette saison spécifique
+        const upcomingSeasonData = item.seasons?.find((s: TMDBSeason) => s.season_number === nextSeason);
+
+        if (upcomingSeasonData) {
+            // On récupère le numéro le plus élevé (avec un fallback sur watched_count au cas où)
+            const highestWatched = upcomingSeasonData.max_episode_watched || upcomingSeasonData.watched_count || 0;
+
+            // 3. L'utilisateur a déjà vu cet épisode (ou plus)
+            if (highestWatched >= nextEpisode) {
+                // Le prochain est strictement celui APRÈS le plus grand numéro vu
+                nextEpisode = highestWatched + 1;
+
+                // 4. On dépasse la fin de cette saison
+                if (nextEpisode > upcomingSeasonData.episode_count) {
+
+                    // On vérifie si la saison SUIVANTE existe vraiment
+                    const hasNextSeason = item.seasons?.some((s: TMDBSeason) => s.season_number === nextSeason + 1);
+
+                    if (hasNextSeason) {
+                        nextSeason += 1;
+                        nextEpisode = 1;
+                    } else {
+                        // Aucune saison suivante : on met à 0 pour cacher l'affichage et désactiver le clic
+                        nextEpisode = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    const handleAction = async () => {
+        if (isProcessing) return;
         setIsProcessing(true);
-        
-        if (mediaType === 'tv' && item.next_episode_number > 0 && onWatchEpisode) {
-            onWatchEpisode(item.id, item.next_season_number, item.next_episode_number);
-        } else if (onStatusChange) {
-            onStatusChange(item.id || item.tmdb_id, 'watched');
+
+        try {
+            if (mediaType === 'tv' && nextEpisode > 0 && onWatchEpisode) {
+                await onWatchEpisode(item.id, nextSeason, nextEpisode);
+            } else if (onStatusChange) {
+                await onStatusChange(item.id || item.tmdb_id, 'watched');
+            }
+        } catch (error) {
+            console.error("Erreur lors de l'action :", error);
+        } finally {
+            setIsProcessing(false);
+            setSwipeOffset(0);
+            setIsDragging(false);
         }
     };
 
@@ -113,7 +153,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
     const handleTouchEnd = () => {
         if (isProcessing) return;
-        
+
         if (swipeOffset > 60 && onStatusChange) {
             triggerVibration([50, 100, 50]);
 
@@ -124,7 +164,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         } else {
             setSwipeOffset(0);
         }
-        
+
         setTouchStartX(null);
         setTouchStartY(null);
         setIsDragging(false);
@@ -146,28 +186,22 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                     <img src={imageUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
                 </div>
 
-                <div className="p-3 flex flex-col justify-center flex-grow min-w-0 pr-14"> 
-                    {mediaType === 'tv' && item.next_episode_number > 0 ? (
-                        <div className="flex flex-col">
-                            <h3 className="font-medium text-sm text-white">
-                                S{item.next_season_number} | E{item.next_episode_number}
-                            </h3>
-                            <p className="text-xs text-zinc-400 mt-0.5">
-                                <NextEpisodeInfo
-                                    seriesId={item.id}
-                                    season={item.next_season_number}
-                                    episode={item.next_episode_number}
-                                />
-                            </p>
-                        </div>
-                    ) : (
-                        <h3 className="text-zinc-200">{title}</h3>
-                    )}
+                <div className="p-3 flex flex-col justify-between flex-grow min-w-0 pr-14 gap-1">
+                    <div className="flex flex-col justify-start flex-grow min-w-0 pr-14 gap-1">
+                        <h3 className="text-white text-xl">{title}</h3>
+                        {mediaType === 'tv' && nextEpisode > 0 && (
+                            <div className="flex flex-col">
+                                <h3 className="font-medium text-m text-purple-400">
+                                    S{nextSeason} | E{nextEpisode}
+                                </h3>
+                            </div>
+                        )}
 
-                    {year && !item.next_episode_number && <p className="text-xs text-zinc-500 mt-1">{year}</p>}
+                        {year && !nextEpisode && <p className="text-xs text-zinc-500">{year}</p>}
+                    </div>
 
                     {!isPerson && item.vote_average > 0 && (
-                        <div className="mt-2 text-amber-400 text-xs font-bold flex items-center gap-1">
+                        <div className="text-amber-400 text-sm font-bold flex items-center gap-1">
                             <Star fill="currentColor" size={12} /> {item.vote_average.toFixed(1)}
                         </div>
                     )}
@@ -181,7 +215,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                                 e.preventDefault();
                                 e.stopPropagation();
                                 if (isProcessing) return;
-                                
+
                                 triggerVibration([20, 80, 20]);
                                 setSwipeOffset(window.innerWidth);
                                 setTimeout(() => {
@@ -198,7 +232,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         );
 
         return (
-            <div 
+            <div
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
@@ -213,11 +247,11 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                     )}
                 </div>
 
-                <div 
+                <div
                     className="relative z-10 w-full"
-                    style={{ 
-                        transform: `translateX(${swipeOffset}px)`, 
-                        transition: swipeOffset > 0 && !isDragging ? 'transform 0.3s ease-out' : 'none' 
+                    style={{
+                        transform: `translateX(${swipeOffset}px)`,
+                        transition: swipeOffset > 0 && !isDragging ? 'transform 0.3s ease-out' : 'none'
                     }}
                 >
                     <Link to={targetUrl} onClick={handleClick} className="block">

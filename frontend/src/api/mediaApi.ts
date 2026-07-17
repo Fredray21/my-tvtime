@@ -215,13 +215,8 @@ export const createMediaApi = (api: AxiosInstance) => ({
         });
     },
 
-    getUpcomingMovies: async (page: number): Promise<WatchlistPaginatedResponse> => {
-        const response = await api.get(`/movies/upcoming?page=${page}`);
-        return response.data;
-    },
-
-    getUpcomingSeries: async (page: number): Promise<WatchlistPaginatedResponse> => {
-        const response = await api.get(`/tvs/upcoming?page=${page}`);
+    getMediaUpcoming: async (mediaType: 'movie' | 'tv', page: number): Promise<WatchlistPaginatedResponse> => {
+        const response = await api.get(`/${mediaType}s/upcoming?page=${page}`);
         return response.data;
     },
 
@@ -229,5 +224,4 @@ export const createMediaApi = (api: AxiosInstance) => ({
         const response = await api.get(`/${mediaType}s/${id}/credits`);
         return response.data;
     },
-
 });

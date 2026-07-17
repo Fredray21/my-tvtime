@@ -263,28 +263,39 @@ func (r *Repository) DecrementEpisodeRewatch(userID string, tmdbSeriesID, season
 	return err
 }
 
-// GetWatchedCountBySeason renvoie un dictionnaire [numero_saison] => nombre_episodes_vus
-func (r *Repository) GetWatchedCountBySeason(userID string, seriesID int) (map[int]int, error) {
-	query := `
-        SELECT season_number, COUNT(*) as watched_count
-        FROM user_episodes 
-        WHERE user_id = $1 AND tmdb_series_id = $2
-        GROUP BY season_number
-    `
-    rows, err := r.db.Query(query, userID, seriesID)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
+type SeasonWatchStats struct {
+	WatchedCount      int
+	MaxEpisodeWatched int
+}
 
-    counts := make(map[int]int)
-    for rows.Next() {
-        var seasonNum, count int
-        if err := rows.Scan(&seasonNum, &count); err == nil {
-            counts[seasonNum] = count
-        }
-    }
-    return counts, nil
+// GetWatchedCountBySeason renvoie un dictionnaire [numero_saison] => nombre_episodes_vus
+func (r *Repository) GetWatchedCountBySeason(userID string, seriesID int) (map[int]SeasonWatchStats, error) {
+	query := `
+		SELECT 
+			season_number, 
+			COUNT(*) as watched_count, 
+			COALESCE(MAX(episode_number), 0) as max_episode_watched
+		FROM user_episodes 
+		WHERE user_id = $1 AND tmdb_series_id = $2
+		GROUP BY season_number
+	`
+	rows, err := r.db.Query(query, userID, seriesID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stats := make(map[int]SeasonWatchStats)
+	for rows.Next() {
+		var seasonNum, count, maxEp int
+		if err := rows.Scan(&seasonNum, &count, &maxEp); err == nil {
+			stats[seasonNum] = SeasonWatchStats{
+				WatchedCount:      count,
+				MaxEpisodeWatched: maxEp,
+			}
+		}
+	}
+	return stats, nil
 }
 
 // Récupère les épisodes les plus récents vus (pour le "Latest")
@@ -391,10 +402,10 @@ func (r *Repository) SaveEpisodeMetadata(seriesID int, seasonNum int, episodeNum
 	return err
 }
 
-// GetNextEpisodeForSeries trouve le premier épisode (par saison et numéro) 
+// GetNextEpisodeForSeries trouve le premier épisode (par saison et numéro)
 // qui n'a pas encore été vu par l'utilisateur pour une série donnée.
 func (r *Repository) GetNextEpisodeForSeries(userID string, tmdbSeriesID int) (int, int, error) {
-    query := `
+	query := `
         SELECT em.season_number, em.episode_number
         FROM episode_metadata em
         LEFT JOIN user_episodes ue 
@@ -409,11 +420,11 @@ func (r *Repository) GetNextEpisodeForSeries(userID string, tmdbSeriesID int) (i
         LIMIT 1
     `
 
-    var season, episode int
-    err := r.db.QueryRow(query, userID, tmdbSeriesID).Scan(&season, &episode)
-    
-    if err == sql.ErrNoRows {
-        return 0, 0, nil 
-    }
-    return season, episode, err
+	var season, episode int
+	err := r.db.QueryRow(query, userID, tmdbSeriesID).Scan(&season, &episode)
+
+	if err == sql.ErrNoRows {
+		return 0, 0, nil
+	}
+	return season, episode, err
 }

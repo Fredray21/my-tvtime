@@ -70,7 +70,8 @@ type TMDBSeasonShort struct {
 	VoteAverage  float64 `json:"vote_average"`
 
 	// custom data
-	WatchedCount int     `json:"watched_count"`
+	WatchedCount      int `json:"watched_count"`
+	MaxEpisodeWatched int `json:"max_episode_watched"`
 }
 
 type TMDBSpokenLanguage struct {
@@ -125,7 +126,7 @@ type SeriesCustomResponse struct {
 	UpdatedAt   time.Time `json:"updated_at,omitempty"`
 
 	NextSeasonNumber  int `json:"next_season_number"`
-    NextEpisodeNumber int `json:"next_episode_number"`
+	NextEpisodeNumber int `json:"next_episode_number"`
 }
 
 // Structures pour les saisons et épisodes (Celles qu'il manquait !)
@@ -174,6 +175,37 @@ func NewService(repo *Repository, tmdbClient *tmdb.Client) *TVService {
 		repo:       repo,
 		tmdbClient: tmdbClient,
 	}
+}
+
+// fetchAndEnrichTMDBSeries gère la logique commune : appel TMDB, stats des saisons et calcul du prochain épisode.
+func (s *TVService) fetchAndEnrichTMDBSeries(userID string, seriesID int) (TMDBSeriesResult, int, int, error) {
+	var tmdbSeries TMDBSeriesResult
+
+	tmdbBytes, err := s.tmdbClient.GetSeriesDetails(seriesID)
+	if err != nil {
+		return tmdbSeries, 0, 0, fmt.Errorf("erreur TMDB: %w", err)
+	}
+
+	if err := json.Unmarshal(tmdbBytes, &tmdbSeries); err != nil {
+		return tmdbSeries, 0, 0, err
+	}
+
+	// Enrichissement avec les compteurs de visionnage par saison
+	watchedCounts, _ := s.repo.GetWatchedCountBySeason(userID, seriesID)
+	if watchedCounts != nil {
+		for i, season := range tmdbSeries.Seasons {
+			tmdbSeries.Seasons[i].WatchedCount = watchedCounts[season.SeasonNumber].WatchedCount
+			tmdbSeries.Seasons[i].MaxEpisodeWatched = watchedCounts[season.SeasonNumber].MaxEpisodeWatched
+		}
+	}
+
+	// Récupération du prochain épisode
+	nextSeason, nextEpisode, err := s.repo.GetNextEpisodeForSeries(userID, seriesID)
+	if err != nil {
+		fmt.Printf("Erreur BDD prochain épisode pour série %d: %v\n", seriesID, err)
+	}
+
+	return tmdbSeries, nextSeason, nextEpisode, nil
 }
 
 // WatchEpisode gère le visionnage d'un épisode et met à jour automatiquement l'état de la série.
@@ -286,34 +318,21 @@ func (s *TVService) SyncSeriesStatus(userID string, tmdbSeriesID int) error {
 
 // GetSeriesDetailsForUser récupère la fiche complète d'une série et y injecte le statut local
 func (s *TVService) GetSeriesDetailsForUser(userID string, seriesID int) (*SeriesCustomResponse, error) {
-	tmdbBytes, err := s.tmdbClient.GetSeriesDetails(seriesID)
+	tmdbSeries, nextSeason, nextEpisode, err := s.fetchAndEnrichTMDBSeries(userID, seriesID)
 	if err != nil {
-		return nil, fmt.Errorf("erreur TMDB: %w", err)
-	}
-
-	var tmdbSeries TMDBSeriesResult
-	if err := json.Unmarshal(tmdbBytes, &tmdbSeries); err != nil {
 		return nil, err
 	}
 
-	watchedCounts, _ := s.repo.GetWatchedCountBySeason(userID, seriesID)
-    if watchedCounts != nil {
-        for i, season := range tmdbSeries.Seasons {
-            tmdbSeries.Seasons[i].WatchedCount = watchedCounts[season.SeasonNumber]
-        }
-    }
-
 	customSeries := &SeriesCustomResponse{
-		TMDBSeriesResult: tmdbSeries,
-		MediaType:        "tv",
+		TMDBSeriesResult:  tmdbSeries,
+		MediaType:         "tv",
+		NextSeasonNumber:  nextSeason,
+		NextEpisodeNumber: nextEpisode,
 	}
 
+	// Statut global de la série (spécifique à la fiche détail)
 	record, err := s.repo.GetSeriesStatus(userID, seriesID)
-	if err != nil {
-		return customSeries, nil // On ignore l'erreur BDD pour afficher quand même la série
-	}
-
-	if record != nil {
+	if err == nil && record != nil {
 		customSeries.StatusLocal = record.Status
 		customSeries.IsFavorite = record.IsFavorite
 		customSeries.CreatedAt = record.CreatedAt
@@ -537,14 +556,14 @@ func (s *TVService) GetUpcomingSeries(userID string, page int) ([]SeriesCustomRe
 }
 
 func (s *TVService) GetSerieCredits(tmdbMovieID int) (map[string]interface{}, error) {
-    data, err := s.tmdbClient.GetCredits(tmdbMovieID, "tv")
-    if err != nil {
-        return nil, err
-    }
-    
-    var credits map[string]interface{}
-    if err := json.Unmarshal(data, &credits); err != nil {
-        return nil, err
-    }
-    return credits, nil
+	data, err := s.tmdbClient.GetCredits(tmdbMovieID, "tv")
+	if err != nil {
+		return nil, err
+	}
+
+	var credits map[string]interface{}
+	if err := json.Unmarshal(data, &credits); err != nil {
+		return nil, err
+	}
+	return credits, nil
 }

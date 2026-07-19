@@ -36,7 +36,20 @@ type TMDBMovieResult struct {
 	ProductionCompanies []ProductionCompany `json:"production_companies"`
 	Budget              int64               `json:"budget"`
 	Revenue             int64               `json:"revenue"`
-	Status              string              `json:"status"` // Statut de sortie (ex: "Released")
+	Status              string              `json:"status"`
+
+	Videos struct {
+		Results []struct {
+			ID        string `json:"id"`
+			Key       string `json:"key"`
+			Name      string `json:"name"`
+			Site      string `json:"site"`
+			Size      int    `json:"size"`
+			Type      string `json:"type"`
+			Official  bool   `json:"official"`
+			Published string `json:"published_at"`
+		} `json:"results"`
+	} `json:"videos"`
 }
 
 // TMDBSearchResponse représente la réponse globale de recherche TMDB
@@ -197,14 +210,14 @@ func (s *MovieService) GetUpcomingMovies(userID string, page int) ([]MovieCustom
 }
 
 func (s *MovieService) GetMovieCredits(tmdbMovieID int) (map[string]interface{}, error) {
-    data, err := s.tmdbClient.GetCredits(tmdbMovieID, "movie")
-    if err != nil {
-        return nil, err
-    }
-    
-    var credits map[string]interface{}
-    if err := json.Unmarshal(data, &credits); err != nil {
-        return nil, err
-    }
-    return credits, nil
+	data, err := s.tmdbClient.GetCredits(tmdbMovieID, "movie")
+	if err != nil {
+		return nil, err
+	}
+
+	var credits map[string]interface{}
+	if err := json.Unmarshal(data, &credits); err != nil {
+		return nil, err
+	}
+	return credits, nil
 }

@@ -25,6 +25,18 @@ export interface TMDBSeasonShort {
     watched_count: number;
 }
 
+export interface TMDBVideo {
+    id: string;
+    key: string;
+    name: string;
+    site: string;
+    size: number;
+    type: string;
+    official: boolean;
+    published_at: string;
+}
+
+
 // --- 2. LE TYPE HYBRIDE (FILM & SÉRIE) ---
 export interface TMDBMediaResult {
     id: number;
@@ -55,7 +67,12 @@ export interface TMDBMediaResult {
     genres?: Genre[];
     production_companies?: ProductionCompany[];
     status?: string;
+
+    videos?: {
+        results: TMDBVideo[];
+    };
 }
+
 
 // --- 3. NOS TYPES LOCAUX (AVEC BDD) ---
 export interface MediaCustomResponse extends TMDBMediaResult {
@@ -68,6 +85,8 @@ export interface MediaCustomResponse extends TMDBMediaResult {
     
     next_season_number?: number;
     next_episode_number?: number;
+
+
 }
 
 export interface WatchlistPaginatedResponse {

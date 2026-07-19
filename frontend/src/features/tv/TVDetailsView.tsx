@@ -7,6 +7,8 @@ import { triggerVibration } from '../../utils/haptics';
 import { CheckCircle } from 'lucide-react';
 import { SeasonAccordion } from '../../components/SeasonAccordion';
 import type { UpdateStatusDTO } from '../../api/mediaApi';
+import { MediaTrailers } from '../../components/MediaTrailers';
+import { SeasonStatsGraph } from '../../components/SeasonStatsGraph';
 
 export const TVDetailsView = () => {
     const { id } = useParams<{ id: string }>();
@@ -59,14 +61,14 @@ export const TVDetailsView = () => {
 
             queryClient.setQueryData(['tv', seriesId], (old: any) => {
                 if (!old) return old;
-                
+
                 let updatedSeasons = old.seasons;
-                
+
                 // Si l'utilisateur clique sur "Ne plus suivre"
                 if (variables.newStatus === 'not_tracked' && old.seasons) {
                     // 1. On remet tous les compteurs de saisons à 0 instantanément
                     updatedSeasons = old.seasons.map((s: any) => ({ ...s, watched_count: 0 }));
-                    
+
                     // 2. On vide le cache précis des épisodes pour forcer un rechargement si on ré-ouvre l'accordéon
                     queryClient.removeQueries({ queryKey: ['tv', seriesId, 'season'] });
                 }
@@ -114,9 +116,9 @@ export const TVDetailsView = () => {
 
     for (const season of sortedSeasons) {
         if (season.season_number === 0 || season.episode_count === 0) continue;
-        
+
         const tier = Math.floor((season.watched_count || 0) / season.episode_count);
-        
+
         if (tier < minTier) {
             minTier = tier;
             defaultSeasonId = season.id;
@@ -181,6 +183,9 @@ export const TVDetailsView = () => {
                     )}
                 </div>
 
+                {/* --- GRAPH DE STATS PAR SAISON --- */}
+                <SeasonStatsGraph seriesId={seriesId} seasons={sortedSeasons} />
+
                 {/* --- NAVIGATION DES SAISONS --- */}
                 <div className="mb-10">
                     <div className="flex items-center justify-between mb-4">
@@ -189,16 +194,19 @@ export const TVDetailsView = () => {
                             <CheckCircle size={18} />
                         </div>
                     </div>
-                    
+
                     {sortedSeasons.map((season) => (
-                        <SeasonAccordion 
-                            key={season.id} 
-                            seriesId={seriesId} 
-                            season={season} 
+                        <SeasonAccordion
+                            key={season.id}
+                            seriesId={seriesId}
+                            season={season}
                             defaultOpen={season.id === defaultSeasonId}
                         />
                     ))}
                 </div>
+
+                {/* SECTION VIDÉOS */}
+                <MediaTrailers videos={series.videos?.results} />
 
                 {/* SECTION DISTRIBUTION (CASTING) */}
                 <div className="mb-12 mt-12 border-t border-zinc-800/50 pt-8">

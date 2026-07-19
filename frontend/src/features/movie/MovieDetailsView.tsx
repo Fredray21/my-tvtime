@@ -4,6 +4,7 @@ import { useApi } from '../../context/ApiContext';
 import { MediaCard } from '../../components/MediaCard';
 import { triggerVibration } from '../../utils/haptics';
 import type { UpdateStatusDTO } from '../../api/mediaApi';
+import { MediaTrailers } from '../../components/MediaTrailers';
 
 export const MovieDetailsView = () => {
     const { id } = useParams<{ id: string }>();
@@ -59,7 +60,7 @@ export const MovieDetailsView = () => {
                 if (!old) return old;
 
                 const isFirstWatch = old.status_local !== 'watched' && variables.newStatus === 'watched';
-                
+
                 const now = new Date().toISOString();
 
                 return {
@@ -312,6 +313,9 @@ export const MovieDetailsView = () => {
                         </div>
                     </div>
                 )}
+
+                {/* SECTION VIDÉOS */}
+                <MediaTrailers videos={movie.videos?.results} />
 
                 {/* SECTION DISTRIBUTION (CASTING) */}
                 <div className="mb-12 mt-12 border-t border-zinc-800/50 pt-8">

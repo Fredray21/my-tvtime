@@ -115,6 +115,21 @@ type TMDBSeriesResult struct {
 	Type                string                  `json:"type"`
 	VoteAverage         float64                 `json:"vote_average"`
 	VoteCount           int                     `json:"vote_count"`
+
+	//
+	//
+	Videos struct {
+		Results []struct {
+			ID        string `json:"id"`
+			Key       string `json:"key"`
+			Name      string `json:"name"`
+			Site      string `json:"site"`
+			Size      int    `json:"size"`
+			Type      string `json:"type"`
+			Official  bool   `json:"official"`
+			Published string `json:"published_at"`
+		} `json:"results"`
+	} `json:"videos"`
 }
 
 // Réponse formatée pour ton frontend

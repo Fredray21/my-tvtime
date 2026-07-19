@@ -69,7 +69,7 @@ func (c *Client) SearchTVShow(title string) ([]byte, error) {
 
 // GetMovieDetails récupère les infos complètes d'un film (synopsis, note, poster...)
 func (c *Client) GetMovieDetails(tmdbMovieID int) ([]byte, error) {
-	reqURL := fmt.Sprintf("%s/movie/%d?api_key=%s&language=fr-FR", c.baseURL, tmdbMovieID, c.apiKey)
+	reqURL := fmt.Sprintf("%s/movie/%d?api_key=%s&language=fr-FR&include_video_language=fr,en&append_to_response=videos", c.baseURL, tmdbMovieID, c.apiKey)
 	return c.get(reqURL)
 }
 
@@ -86,7 +86,7 @@ func (c *Client) GetSeriesTotalEpisodes(ctx context.Context, tmdbSeriesID int) (
 
 // GetSeriesDetails renvoie le JSON brut des détails d'une série
 func (c *Client) GetSeriesDetails(seriesID int) ([]byte, error) {
-	reqURL := fmt.Sprintf("%s/tv/%d?api_key=%s&language=fr-FR", c.baseURL, seriesID, c.apiKey)
+	reqURL := fmt.Sprintf("%s/tv/%d?api_key=%s&language=fr-FR&include_video_language=fr,en&append_to_response=videos", c.baseURL, seriesID, c.apiKey)
 	return c.get(reqURL)
 }
 

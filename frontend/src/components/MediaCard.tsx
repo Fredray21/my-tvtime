@@ -188,20 +188,32 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
                 <div className="p-3 flex flex-col justify-between flex-grow min-w-0 pr-14 gap-1">
                     <div className="flex flex-col justify-start flex-grow min-w-0 pr-14 gap-1">
-                        <h3 className="text-white text-xl">{title}</h3>
+                        <h3 className="text-white text-xl line-clamp-1">{title}</h3>
+
                         {mediaType === 'tv' && nextEpisode > 0 && (
                             <div className="flex flex-col">
-                                <h3 className="font-medium text-m text-purple-400">
+                                <h3 className="font-medium text-sm text-purple-400">
                                     S{nextSeason} | E{nextEpisode}
                                 </h3>
                             </div>
                         )}
 
-                        {year && !nextEpisode && <p className="text-xs text-zinc-500">{year}</p>}
+                        {/* Conteneur pour l'année ET le badge J-XXX */}
+                        <div className="flex items-center gap-2 mt-0.5">
+                            {year && !nextEpisode && <p className="text-xs text-zinc-500">{year}</p>}
+
+                            {/* AJOUT DU TAG J-XXX ICI */}
+                            {daysLeft !== null && (
+                                <div className="flex items-center gap-1 bg-purple-500 text-black px-1.5 py-0.5 rounded text-[11px] font-black shadow-sm w-fit">
+                                    <CalendarClock size={12} />
+                                    <span>J-{daysLeft}</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {!isPerson && item.vote_average > 0 && (
-                        <div className="text-amber-400 text-sm font-bold flex items-center gap-1">
+                        <div className="text-amber-400 text-sm font-bold flex items-center gap-1 mt-1">
                             <Star fill="currentColor" size={12} /> {item.vote_average.toFixed(1)}
                         </div>
                     )}

@@ -1,6 +1,9 @@
 package user
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/Fredray21/my-tvtime/internal/movie"
 	"github.com/Fredray21/my-tvtime/internal/tmdb"
 	"github.com/Fredray21/my-tvtime/internal/tv"
@@ -68,15 +71,34 @@ func (s *UserService) GetLatestWatchedTV(userID string, page, limit int) ([]tv.S
 		return nil, err
 	}
 
-	// 2. Enrichir avec les détails de la SÉRIE
-	var enriched []tv.SeriesCustomResponse
-	for _, rec := range records {
-		details, err := s.tvService.GetSeriesDetailsForUser(userID, rec.TMDBSeriesID)
-		if err == nil {
-			enriched = append(enriched, *details)
+	enriched := make([]tv.SeriesCustomResponse, len(records))
+	var wg sync.WaitGroup
+
+	for i, rec := range records {
+		wg.Add(1)
+
+		go func(index int, seriesID int) {
+			defer wg.Done()
+
+			details, err := s.tvService.GetSeriesDetailsForUser(userID, seriesID)
+			if err == nil && details != nil {
+				enriched[index] = *details
+			} else {
+				fmt.Printf("Erreur lors de la récupération de la série %d: %v\n", seriesID, err)
+			}
+		}(i, rec.TMDBSeriesID)
+	}
+
+	wg.Wait()
+
+	var finalResults []tv.SeriesCustomResponse
+	for _, res := range enriched {
+		if res.ID != 0 {
+			finalResults = append(finalResults, res)
 		}
 	}
-	return enriched, nil
+
+	return finalResults, nil
 }
 
 func (s *UserService) GetMovieStats(userID string) (MovieStats, error) {

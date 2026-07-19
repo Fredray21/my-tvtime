@@ -57,7 +57,18 @@ export const MovieDetailsView = () => {
 
             queryClient.setQueryData(['movie', mediaType, movieId], (old: any) => {
                 if (!old) return old;
-                return { ...old, status_local: variables.newStatus, is_favorite: variables.isFavorite };
+
+                const isFirstWatch = old.status_local !== 'watched' && variables.newStatus === 'watched';
+                
+                const now = new Date().toISOString();
+
+                return {
+                    ...old,
+                    status_local: variables.newStatus,
+                    is_favorite: variables.isFavorite,
+                    created_at: isFirstWatch ? now : old.created_at,
+                    updated_at: now,
+                };
             });
             return { previousMovie };
         },

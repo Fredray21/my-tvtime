@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/patrickmn/go-cache"
 )
 
 // Client structure notre client HTTP pour TMDB
@@ -14,16 +16,27 @@ type Client struct {
 	apiKey     string
 	baseURL    string
 	httpClient *http.Client
+	memCache   *cache.Cache
 }
 
 // NewClient initialise le client avec la clé d'API passée depuis main.go
 func NewClient(apiKey string) *Client {
+	customTransport := &http.Transport{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 50,
+		IdleConnTimeout:     90 * time.Second,
+	}
+
+	tmdbCache := cache.New(24*time.Hour, 1*time.Hour)
+
 	return &Client{
 		apiKey:  apiKey,
 		baseURL: "https://api.themoviedb.org/3",
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Transport: customTransport,
+			Timeout:   10 * time.Second,
 		},
+		memCache: tmdbCache,
 	}
 }
 
@@ -100,21 +113,32 @@ func (c *Client) GetTMDBIDFromTVDB(tvdbID int) ([]byte, error) {
 }
 
 func (c *Client) GetCredits(tmdbID int, mediaType string) ([]byte, error) {
-    url := fmt.Sprintf("%s/%s/%d/credits?api_key=%s&language=fr-FR", c.baseURL, mediaType, tmdbID, c.apiKey)
-    return c.get(url)
+	url := fmt.Sprintf("%s/%s/%d/credits?api_key=%s&language=fr-FR", c.baseURL, mediaType, tmdbID, c.apiKey)
+	return c.get(url)
 }
 
+func (c *Client) get(reqURL string) ([]byte, error) {
+	if cachedData, found := c.memCache.Get(reqURL); found {
+		return cachedData.([]byte), nil // Trouvé ! On renvoie instantanément
+	}
 
-func (c *Client) get(url string) ([]byte, error) {
-	resp, err := c.httpClient.Get(url)
+	resp, err := c.httpClient.Get(reqURL)
 	if err != nil {
 		return nil, err
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("tmdb returned status %d", resp.StatusCode)
 	}
 
-	return io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	c.memCache.Set(reqURL, body, cache.DefaultExpiration)
+
+	return body, nil
 }

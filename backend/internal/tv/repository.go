@@ -266,6 +266,7 @@ func (r *Repository) DecrementEpisodeRewatch(userID string, tmdbSeriesID, season
 type SeasonWatchStats struct {
 	WatchedCount      int
 	MaxEpisodeWatched int
+	MinRewatchCount   int
 }
 
 // GetWatchedCountBySeason renvoie un dictionnaire [numero_saison] => nombre_episodes_vus
@@ -274,7 +275,8 @@ func (r *Repository) GetWatchedCountBySeason(userID string, seriesID int) (map[i
 		SELECT 
 			season_number, 
 			COUNT(*) as watched_count, 
-			COALESCE(MAX(episode_number), 0) as max_episode_watched
+			COALESCE(MAX(episode_number), 0) as max_episode_watched,
+			COALESCE(MIN(rewatch_count), 0) as min_rewatch_count
 		FROM user_episodes 
 		WHERE user_id = $1 AND tmdb_series_id = $2
 		GROUP BY season_number
@@ -287,11 +289,12 @@ func (r *Repository) GetWatchedCountBySeason(userID string, seriesID int) (map[i
 
 	stats := make(map[int]SeasonWatchStats)
 	for rows.Next() {
-		var seasonNum, count, maxEp int
-		if err := rows.Scan(&seasonNum, &count, &maxEp); err == nil {
+		var seasonNum, count, maxEp, minRewatch int
+		if err := rows.Scan(&seasonNum, &count, &maxEp, &minRewatch); err == nil {
 			stats[seasonNum] = SeasonWatchStats{
 				WatchedCount:      count,
 				MaxEpisodeWatched: maxEp,
+				MinRewatchCount:   minRewatch,
 			}
 		}
 	}

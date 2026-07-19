@@ -29,7 +29,11 @@ func (r *Repository) SaveMovieStatus(userID string, tmdbMovieID int, status stri
 			status = EXCLUDED.status,
 			is_favorite = EXCLUDED.is_favorite,
 			rewatch_count = EXCLUDED.rewatch_count,
-			updated_at = EXCLUDED.updated_at;
+			updated_at = EXCLUDED.updated_at,
+			created_at = CASE 
+                WHEN user_movies.status != 'watched' AND EXCLUDED.status = 'watched' THEN EXCLUDED.updated_at
+                ELSE user_movies.created_at
+			END;
 	`
 	_, err := r.db.Exec(query, userID, tmdbMovieID, status, isFavorite, rewatchCount, watchedAt, watchedAt)
 	return err

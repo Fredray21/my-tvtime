@@ -16,14 +16,13 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
     const api = useApi();
     const queryClient = useQueryClient();
 
-    // Fetch À LA DEMANDE
     const { data: seasonData, isLoading } = useQuery({
         queryKey: ['tv', seriesId, 'season', season.season_number],
         queryFn: () => api.media.getSeasonDetails(seriesId, season.season_number),
         enabled: isOpen,
     });
 
-    // Calcul intelligent : on utilise les données fetchées si dispo, sinon le pré-calcul du backend
+    // 1. Calcul des épisodes vus
     const watchedCount = seasonData 
         ? seasonData.episodes.filter((ep: any) => ep.is_watched).length 
         : (season.watched_count || 0);
@@ -31,15 +30,21 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
     const totalCount = season.episode_count;
     const progressPercentage = totalCount > 0 ? (Math.min(watchedCount, totalCount) / totalCount) * 100 : 0;
 
-    // Calcul du "Tier" de la saison (combien de fois elle a été vue ENTIEREMENT)
+    // 2. Calcul du statut de la saison entière (Season Tier)
     let seasonTier = 0;
     if (seasonData?.episodes && seasonData.episodes.length > 0) {
-        seasonTier = Math.min(...seasonData.episodes.map((ep: any) => ep.is_watched ? (ep.rewatch_count || 0) + 1 : 0));
+        // Calcul en direct si l'accordéon est ouvert
+        const allWatched = seasonData.episodes.every((ep: any) => ep.is_watched);
+        if (allWatched) {
+            seasonTier = Math.min(...seasonData.episodes.map((ep: any) => (ep.rewatch_count || 0) + 1));
+        }
     } else {
-        seasonTier = totalCount > 0 ? Math.floor((season.watched_count || 0) / totalCount) : 0;
+        // Utilisation de la propriété de l'API (min_rewatch_count) quand l'accordéon est fermé
+        if (watchedCount === totalCount && totalCount > 0) {
+            seasonTier = (season.min_rewatch_count || 0) + 1;
+        }
     }
 
-    // --- MUTATION GLOBALE (Saison) ---
     const handleSeasonAction = async (action: 'add' | 'remove' | 'decrement') => {
         if (isSeasonMutating) return;
         setIsSeasonMutating(true);
@@ -108,9 +113,11 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
                     </div>
                     
                     <div className="flex items-center gap-4">
-                        <span className="text-zinc-400 text-sm font-medium">
-                            {Math.min(watchedCount, totalCount)}/{totalCount}
-                        </span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-zinc-400 text-sm font-medium">
+                                {Math.min(watchedCount, totalCount)}/{totalCount}
+                            </span>
+                        </div>
                         
                         {/* CONTRÔLES DE LA SAISON GLOBALE */}
                         {isSeasonMutating ? (

@@ -72,6 +72,7 @@ type TMDBSeasonShort struct {
 	// custom data
 	WatchedCount      int `json:"watched_count"`
 	MaxEpisodeWatched int `json:"max_episode_watched"`
+	MinRewatchCount   int `json:"min_rewatch_count"`
 }
 
 type TMDBSpokenLanguage struct {
@@ -196,6 +197,7 @@ func (s *TVService) fetchAndEnrichTMDBSeries(userID string, seriesID int) (TMDBS
 		for i, season := range tmdbSeries.Seasons {
 			tmdbSeries.Seasons[i].WatchedCount = watchedCounts[season.SeasonNumber].WatchedCount
 			tmdbSeries.Seasons[i].MaxEpisodeWatched = watchedCounts[season.SeasonNumber].MaxEpisodeWatched
+			tmdbSeries.Seasons[i].MinRewatchCount = watchedCounts[season.SeasonNumber].MinRewatchCount
 		}
 	}
 

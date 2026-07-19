@@ -2,12 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '../context/ApiContext';
 import { ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react';
-import { 
-    LineChart, 
-    Line, 
-    XAxis, 
-    YAxis, 
-    Tooltip, 
+import {
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    Tooltip,
     ResponsiveContainer,
     ReferenceLine
 } from 'recharts';
@@ -47,15 +47,16 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
     }, [seasons]);
 
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [touchStartX, setTouchStartX] = useState<number | null>(null); // <-- State pour le swipe
-    
+    const [touchStartX, setTouchStartX] = useState<number | null>(null);
+    const [isSwiping, setIsSwiping] = useState(false); // <-- NOUVEAU
+
     const currentSeason = validSeasons[currentIndex];
 
     const { data: seasonData, isLoading } = useQuery({
         queryKey: ['tv', seriesId, 'season', currentSeason?.season_number, 'stats'],
         queryFn: () => api.media.getSeasonDetails(seriesId, currentSeason.season_number),
         enabled: !!currentSeason,
-        staleTime: Infinity, 
+        staleTime: Infinity,
     });
 
     if (validSeasons.length === 0) return null;
@@ -65,7 +66,7 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
         triggerVibration(10);
         setCurrentIndex(prev => (prev > 0 ? prev - 1 : validSeasons.length - 1));
     };
-    
+
     const handleNext = () => {
         triggerVibration(10);
         setCurrentIndex(prev => (prev < validSeasons.length - 1 ? prev + 1 : 0));
@@ -74,37 +75,49 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
     // --- GESTION DU SWIPE SUR LE GRAPHIQUE ---
     const handleTouchStart = (e: React.TouchEvent) => {
         setTouchStartX(e.touches[0].clientX);
+        setIsSwiping(false);
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (touchStartX === null) return;
+
+        const currentX = e.touches[0].clientX;
+        const diff = Math.abs(touchStartX - currentX);
+
+        if (diff > 10 && !isSwiping) {
+            setIsSwiping(true);
+        }
     };
 
     const handleTouchEnd = (e: React.TouchEvent) => {
         if (touchStartX === null) return;
-        
+
         const touchEndX = e.changedTouches[0].clientX;
         const diff = touchStartX - touchEndX;
 
-        // Si on glisse de plus de 50px
         if (diff > 50) {
-            handleNext(); // Swipe vers la gauche (Saison suivante)
+            handleNext();
         } else if (diff < -50) {
-            handlePrev(); // Swipe vers la droite (Saison précédente)
+            handlePrev();
         }
-        
-        setTouchStartX(null); // Reset
+
+        setTouchStartX(null);
+        setTimeout(() => setIsSwiping(false), 100);
     };
 
     const chartData = useMemo(() => {
         if (!seasonData?.episodes) return [];
         return seasonData.episodes
-            .filter(ep => ep.vote_average > 0) 
+            .filter(ep => ep.vote_average > 0)
             .map(ep => ({
                 episode: ep.episode_number,
                 name: ep.name,
-                rating: ep.vote_average / 2, 
+                rating: ep.vote_average / 2,
             }));
     }, [seasonData]);
 
-    const averageSeasonRating = chartData.length > 0 
-        ? chartData.reduce((acc, curr) => acc + curr.rating, 0) / chartData.length 
+    const averageSeasonRating = chartData.length > 0
+        ? chartData.reduce((acc, curr) => acc + curr.rating, 0) / chartData.length
         : 0;
 
     return (
@@ -133,9 +146,10 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
             </div>
 
             {/* CONTENEUR DU GRAPHIQUE AVEC TOUCH EVENTS */}
-            <div 
+            <div
                 className="w-full h-52 bg-zinc-900/30 rounded-2xl p-4 border border-zinc-800/50 relative select-none"
                 onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove} // <-- Ajouté
                 onTouchEnd={handleTouchEnd}
             >
                 {isLoading ? (
@@ -147,47 +161,49 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
                         Pas assez de notes pour cette saison.
                     </div>
                 ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                            <ReferenceLine 
-                                y={averageSeasonRating} 
-                                stroke="#52525b" 
-                                strokeDasharray="3 3" 
-                                opacity={0.5}
-                            />
-                            
-                            <XAxis 
-                                dataKey="episode" 
-                                stroke="#52525b" 
-                                fontSize={10}
-                                tickFormatter={(value) => `E${value}`}
-                                tickLine={false}
-                                axisLine={false}
-                                dy={10}
-                            />
-                            
-                            <YAxis 
-                                stroke="#52525b" 
-                                fontSize={10} 
-                                domain={[0, 5]} 
-                                tickCount={6}
-                                tickLine={false}
-                                axisLine={false}
-                            />
-                            
-                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#3f3f46', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                            
-                            <Line 
-                                type="monotone" 
-                                dataKey="rating" 
-                                stroke="#a855f7" 
-                                strokeWidth={3}
-                                dot={{ fill: '#18181b', stroke: '#a855f7', strokeWidth: 2, r: 4 }}
-                                activeDot={{ fill: '#a855f7', stroke: '#fff', strokeWidth: 2, r: 6 }}
-                                animationDuration={1000}
-                            />
-                        </LineChart>
-                    </ResponsiveContainer>
+                    <div className={`w-full h-full ${isSwiping ? 'pointer-events-none' : ''}`}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                                <ReferenceLine
+                                    y={averageSeasonRating}
+                                    stroke="#52525b"
+                                    strokeDasharray="3 3"
+                                    opacity={0.5}
+                                />
+
+                                <XAxis
+                                    dataKey="episode"
+                                    stroke="#52525b"
+                                    fontSize={10}
+                                    tickFormatter={(value) => `E${value}`}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    dy={10}
+                                />
+
+                                <YAxis
+                                    stroke="#52525b"
+                                    fontSize={10}
+                                    domain={[0, 5]}
+                                    tickCount={6}
+                                    tickLine={false}
+                                    axisLine={false}
+                                />
+
+                                <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#3f3f46', strokeWidth: 1, strokeDasharray: '5 5' }} />
+
+                                <Line
+                                    type="monotone"
+                                    dataKey="rating"
+                                    stroke="#a855f7"
+                                    strokeWidth={3}
+                                    dot={{ fill: '#18181b', stroke: '#a855f7', strokeWidth: 2, r: 4 }}
+                                    activeDot={{ fill: '#a855f7', stroke: '#fff', strokeWidth: 2, r: 6 }}
+                                    animationDuration={1000}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
                 )}
             </div>
         </div>

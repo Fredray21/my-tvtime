@@ -183,9 +183,6 @@ export const TVDetailsView = () => {
                     )}
                 </div>
 
-                {/* --- GRAPH DE STATS PAR SAISON --- */}
-                <SeasonStatsGraph seriesId={seriesId} seasons={sortedSeasons} />
-
                 {/* --- NAVIGATION DES SAISONS --- */}
                 <div className="mb-10">
                     <div className="flex items-center justify-between mb-4">
@@ -204,6 +201,9 @@ export const TVDetailsView = () => {
                         />
                     ))}
                 </div>
+
+                {/* --- GRAPH DE STATS PAR SAISON --- */}
+                <SeasonStatsGraph seriesId={seriesId} seasons={sortedSeasons} />
 
                 {/* SECTION VIDÉOS */}
                 <MediaTrailers videos={series.videos?.results} />

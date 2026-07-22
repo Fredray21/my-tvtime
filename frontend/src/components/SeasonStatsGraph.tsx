@@ -22,16 +22,17 @@ const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         return (
-            <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-xl shadow-xl z-50 transform -translate-y-10 transition-opacity">
+            <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-xl shadow-xl z-50 transform -translate-y-[130%] transition-opacity min-w-[200px] max-w-[240px]">
                 <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">
                     Épisode {data.episode}
                 </p>
-                <p className="text-white text-sm font-semibold line-clamp-2 mb-2 w-48">
-                    {data.name}
-                </p>
-                <div className="flex items-center gap-1.5 text-amber-400 font-bold text-lg">
-                    <span>⭐️</span> {data.rating.toFixed(1)}
-                    <span className="text-zinc-500 text-xs font-normal">/ 5</span>
+                <div className="flex items-start justify-between gap-3">
+                    <p className="text-white text-sm font-semibold line-clamp-2 flex-1">
+                        {data.name}
+                    </p>
+                    <div className="flex items-center gap-1 text-amber-400 font-bold text-sm shrink-0">
+                        <span>⭐️</span> {data.rating.toFixed(1)}
+                    </div>
                 </div>
             </div>
         );

@@ -11,7 +11,7 @@ import {
     ResponsiveContainer,
     ReferenceLine
 } from 'recharts';
-import { triggerVibration } from '../utils/haptics'; // <-- Ajout de l'import haptique
+import { triggerVibration } from '../utils/haptics';
 
 interface SeasonStatsGraphProps {
     seriesId: number;
@@ -22,7 +22,7 @@ const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         return (
-            <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-xl shadow-xl z-50">
+            <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-xl shadow-xl z-50 transform -translate-y-10 transition-opacity">
                 <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">
                     Épisode {data.episode}
                 </p>
@@ -48,7 +48,9 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
 
     const [currentIndex, setCurrentIndex] = useState(0);
     const [touchStartX, setTouchStartX] = useState<number | null>(null);
-    const [isSwiping, setIsSwiping] = useState(false); // <-- NOUVEAU
+    const [isSwiping, setIsSwiping] = useState(false);
+    
+    const [isPressing, setIsPressing] = useState(false);
 
     const currentSeason = validSeasons[currentIndex];
 
@@ -61,7 +63,6 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
 
     if (validSeasons.length === 0) return null;
 
-    // --- FONCTIONS DE NAVIGATION AVEC VIBRATION ---
     const handlePrev = () => {
         triggerVibration(10);
         setCurrentIndex(prev => (prev > 0 ? prev - 1 : validSeasons.length - 1));
@@ -72,10 +73,11 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
         setCurrentIndex(prev => (prev < validSeasons.length - 1 ? prev + 1 : 0));
     };
 
-    // --- GESTION DU SWIPE SUR LE GRAPHIQUE ---
+    // --- GESTION DES INTERACTIONS ---
     const handleTouchStart = (e: React.TouchEvent) => {
         setTouchStartX(e.touches[0].clientX);
         setIsSwiping(false);
+        setIsPressing(true);
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
@@ -84,12 +86,15 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
         const currentX = e.touches[0].clientX;
         const diff = Math.abs(touchStartX - currentX);
 
-        if (diff > 10 && !isSwiping) {
+        if (diff > 15 && !isSwiping) {
             setIsSwiping(true);
+            setIsPressing(false);
         }
     };
 
     const handleTouchEnd = (e: React.TouchEvent) => {
+        setIsPressing(false);
+
         if (touchStartX === null) return;
 
         const touchEndX = e.changedTouches[0].clientX;
@@ -145,12 +150,15 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
                 )}
             </div>
 
-            {/* CONTENEUR DU GRAPHIQUE AVEC TOUCH EVENTS */}
+            {/* Ajout des events Mouse pour tester sur PC + Touch pour mobile */}
             <div
                 className="w-full h-52 bg-zinc-900/30 rounded-2xl p-4 border border-zinc-800/50 relative select-none"
                 onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove} // <-- Ajouté
+                onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
+                onMouseDown={() => setIsPressing(true)}
+                onMouseUp={() => setIsPressing(false)}
+                onMouseLeave={() => setIsPressing(false)}
             >
                 {isLoading ? (
                     <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-sm animate-pulse">
@@ -190,7 +198,10 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
                                     axisLine={false}
                                 />
 
-                                <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#3f3f46', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                <Tooltip 
+                                    content={(props) => isPressing ? <CustomTooltip {...props} /> : null} 
+                                    cursor={isPressing ? { stroke: '#3f3f46', strokeWidth: 1, strokeDasharray: '5 5' } : false} 
+                                />
 
                                 <Line
                                     type="monotone"

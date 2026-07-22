@@ -47,9 +47,6 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
     }, [seasons]);
 
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [touchStartX, setTouchStartX] = useState<number | null>(null);
-    const [isSwiping, setIsSwiping] = useState(false);
-    
     const [isPressing, setIsPressing] = useState(false);
 
     const currentSeason = validSeasons[currentIndex];
@@ -71,43 +68,6 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
     const handleNext = () => {
         triggerVibration(10);
         setCurrentIndex(prev => (prev < validSeasons.length - 1 ? prev + 1 : 0));
-    };
-
-    // --- GESTION DES INTERACTIONS ---
-    const handleTouchStart = (e: React.TouchEvent) => {
-        setTouchStartX(e.touches[0].clientX);
-        setIsSwiping(false);
-        setIsPressing(true);
-    };
-
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (touchStartX === null) return;
-
-        const currentX = e.touches[0].clientX;
-        const diff = Math.abs(touchStartX - currentX);
-
-        if (diff > 15 && !isSwiping) {
-            setIsSwiping(true);
-            setIsPressing(false);
-        }
-    };
-
-    const handleTouchEnd = (e: React.TouchEvent) => {
-        setIsPressing(false);
-
-        if (touchStartX === null) return;
-
-        const touchEndX = e.changedTouches[0].clientX;
-        const diff = touchStartX - touchEndX;
-
-        if (diff > 50) {
-            handleNext();
-        } else if (diff < -50) {
-            handlePrev();
-        }
-
-        setTouchStartX(null);
-        setTimeout(() => setIsSwiping(false), 100);
     };
 
     const chartData = useMemo(() => {
@@ -137,26 +97,31 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
 
                 {validSeasons.length > 1 && (
                     <div className="flex items-center gap-3 bg-zinc-900/80 rounded-full px-2 py-1 border border-zinc-800">
-                        <button onClick={handlePrev} className="p-1 text-zinc-400 hover:text-white transition">
-                            <ChevronLeft size={18} />
+                        <button 
+                            onClick={handlePrev} 
+                            className="p-1.5 rounded-full text-zinc-400 hover:text-white active:bg-zinc-700 active:text-white active:scale-90 transition-all duration-150"
+                        >
+                            <ChevronLeft size={22} />
                         </button>
                         <span className="text-xs font-bold text-white min-w-[60px] text-center">
                             Saison {currentSeason.season_number}
                         </span>
-                        <button onClick={handleNext} className="p-1 text-zinc-400 hover:text-white transition">
-                            <ChevronRight size={18} />
+                        <button 
+                            onClick={handleNext} 
+                            className="p-1.5 rounded-full text-zinc-400 hover:text-white active:bg-zinc-700 active:text-white active:scale-90 transition-all duration-150"
+                        >
+                            <ChevronRight size={22} />
                         </button>
                     </div>
                 )}
             </div>
 
-            {/* Ajout des events Mouse pour tester sur PC + Touch pour mobile */}
             <div
                 className="w-full h-52 bg-zinc-900/30 rounded-2xl p-4 border border-zinc-800/50 relative select-none"
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
+                onTouchStart={() => setIsPressing(true)}
                 onMouseDown={() => setIsPressing(true)}
+                onTouchEnd={() => setIsPressing(false)}
+                onTouchCancel={() => setIsPressing(false)}
                 onMouseUp={() => setIsPressing(false)}
                 onMouseLeave={() => setIsPressing(false)}
             >
@@ -169,7 +134,7 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
                         Pas assez de notes pour cette saison.
                     </div>
                 ) : (
-                    <div className={`w-full h-full ${isSwiping ? 'pointer-events-none' : ''}`}>
+                    <div className="w-full h-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                                 <ReferenceLine
@@ -200,7 +165,8 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
 
                                 <Tooltip 
                                     content={(props) => isPressing ? <CustomTooltip {...props} /> : null} 
-                                    cursor={isPressing ? { stroke: '#3f3f46', strokeWidth: 1, strokeDasharray: '5 5' } : false} 
+                                    cursor={isPressing ? { stroke: '#3f3f46', strokeWidth: 1, strokeDasharray: '5 5' } : false}
+                                    isAnimationActive={false} 
                                 />
 
                                 <Line

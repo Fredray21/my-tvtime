@@ -324,7 +324,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
     return (
         <div className={cardClasses}>
-            {isPerson ? <div>{content}</div> : <Link to={targetUrl}>{content}</Link>}
+            <Link to={targetUrl}>{content}</Link>
 
             {fallbackMediaType === 'movie' && onStatusChange && !isPerson && item.status_local && (
                 <div className="p-2 pt-1.5 z-10 relative">

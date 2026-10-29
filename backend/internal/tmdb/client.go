@@ -117,6 +117,12 @@ func (c *Client) GetCredits(tmdbID int, mediaType string) ([]byte, error) {
 	return c.get(url)
 }
 
+// GetPersonDetails récupère la fiche d'une personne + sa filmographie complète (films & séries) en un seul appel
+func (c *Client) GetPersonDetails(personID int, language string) ([]byte, error) {
+	url := fmt.Sprintf("%s/person/%d?api_key=%s&language=%s&append_to_response=combined_credits,external_ids", c.baseURL, personID, c.apiKey, language)
+	return c.get(url)
+}
+
 func (c *Client) get(reqURL string) ([]byte, error) {
 	if cachedData, found := c.memCache.Get(reqURL); found {
 		return cachedData.([]byte), nil // Trouvé ! On renvoie instantanément

@@ -8,6 +8,7 @@ import (
 	"github.com/Fredray21/my-tvtime/internal/importservice"
 	"github.com/Fredray21/my-tvtime/internal/middleware"
 	"github.com/Fredray21/my-tvtime/internal/movie"
+	"github.com/Fredray21/my-tvtime/internal/person"
 	"github.com/Fredray21/my-tvtime/internal/search"
 	"github.com/Fredray21/my-tvtime/internal/tmdb"
 	"github.com/Fredray21/my-tvtime/internal/tv"
@@ -44,11 +45,13 @@ func main() {
 	tvService := tv.NewService(tvRepo, tmdbClient)
 	userService := user.NewService(userRepo, tmdbClient, movieService, tvService, movieRepo, tvRepo)
 	searchService := search.NewService(tmdbClient, movieService, tvService)
+	personService := person.NewService(tmdbClient, movieService, tvService)
 
 	movieHandler := movie.NewHandler(movieService)
 	tvHandler := tv.NewHandler(tvService)
 	userHandler := user.NewHandler(userService)
 	searchHandler := search.NewHandler(searchService)
+	personHandler := person.NewHandler(personService)
 
 	taskManager := importservice.NewTaskManager()
 	tvTimeImporter := importservice.NewTVTimeImporter(tmdbClient, taskManager)
@@ -110,6 +113,9 @@ func main() {
 		// Search
 		api.GET("/search/multi", searchHandler.HandleMultiSearch)
 		api.GET("/search/:type", searchHandler.HandlePagedSearch)
+
+		// Person
+		api.GET("/persons/:id", personHandler.HandleGetDetails)
 
 		// User
 		api.GET("/user/stats", userHandler.HandleGetUserStats)

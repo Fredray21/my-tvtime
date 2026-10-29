@@ -166,6 +166,38 @@ export interface CreditsResponse {
     crew: CrewMember[];
 }
 
+// --- FICHE PERSONNE (ACTEUR / RÉALISATEUR) ---
+export interface PersonCredit extends MediaCustomResponse {
+    character?: string;
+    job?: string;
+    episode_count?: number;
+    popularity?: number;
+    vote_count?: number;
+}
+
+export interface PersonCreditGroup {
+    movies: PersonCredit[];
+    tv: PersonCredit[];
+}
+
+export interface PersonDetailsResponse {
+    id: number;
+    name: string;
+    biography: string;
+    birthday: string | null;
+    deathday: string | null;
+    place_of_birth: string | null;
+    profile_path: string | null;
+    known_for_department: string;
+    also_known_as: string[];
+    homepage: string | null;
+    gender: number;
+    imdb_id: string | null;
+    instagram_id: string | null;
+    cast: PersonCreditGroup;
+    crew: PersonCreditGroup;
+}
+
 export const createMediaApi = (api: AxiosInstance) => ({
     getWatchlist: async (page: number, mediaType: 'movie' | 'tv') => {
         const response = await api.get(`/${mediaType}s/watchlist?page=${page}`);
@@ -241,6 +273,11 @@ export const createMediaApi = (api: AxiosInstance) => ({
 
     getMediaCredits: async (id: number, mediaType: 'movie' | 'tv'): Promise<CreditsResponse> => {
         const response = await api.get(`/${mediaType}s/${id}/credits`);
+        return response.data;
+    },
+
+    getPersonDetails: async (id: number): Promise<PersonDetailsResponse> => {
+        const response = await api.get<PersonDetailsResponse>(`/persons/${id}`);
         return response.data;
     },
 });

@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../../context/ApiContext';
 import { MediaCard } from '../../components/MediaCard';
@@ -336,7 +336,7 @@ export const MovieDetailsView = () => {
                     ) : credits?.cast && credits.cast.length > 0 ? (
                         <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-none snap-x">
                             {credits.cast.slice(0, 15).map((actor: any) => (
-                                <div key={actor.id} className="w-24 flex-shrink-0 snap-start">
+                                <Link to={`/person/${actor.id}`} key={actor.id} className="w-24 flex-shrink-0 snap-start group">
                                     <div className="w-24 aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800/40 relative shadow-sm">
                                         <img
                                             src={actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : 'https://dummyimage.com/200x300?text=No+Photo'}
@@ -345,9 +345,9 @@ export const MovieDetailsView = () => {
                                             loading="lazy"
                                         />
                                     </div>
-                                    <p className="text-xs font-semibold mt-2 text-zinc-200 line-clamp-1 leading-tight">{actor.name}</p>
+                                    <p className="text-xs font-semibold mt-2 text-zinc-200 line-clamp-1 leading-tight group-hover:text-white">{actor.name}</p>
                                     <p className="text-[10px] text-zinc-500 line-clamp-1 mt-0.5 leading-none">{actor.character}</p>
-                                </div>
+                                </Link>
                             ))}
                         </div>
                     ) : (

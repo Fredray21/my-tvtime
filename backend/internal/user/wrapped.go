@@ -34,6 +34,7 @@ type WrappedTitle struct {
 	BackdropPath string  `json:"backdrop_path"`
 	VoteAverage  float64 `json:"vote_average"`
 	IsFavorite   bool    `json:"is_favorite"`
+	RewatchCount int     `json:"rewatch_count,omitempty"`
 	WatchedAt    string  `json:"watched_at,omitempty"`
 }
 
@@ -202,6 +203,7 @@ func (s *UserService) GetWrapped(userID string, year int) (*WrappedResponse, err
 		data, ok := moviesData[rec.TMDBMovieID]
 		title := data.title
 		title.IsFavorite = rec.IsFavorite
+		title.RewatchCount = rec.RewatchCount
 
 		inYear := func(t time.Time) bool { return !t.Before(start) && t.Before(end) }
 
@@ -326,12 +328,15 @@ func (s *UserService) GetWrapped(userID string, year int) (*WrappedResponse, err
 		response.LastMovie = &last
 	}
 
-	// Coups de cœur d'abord, puis les mieux notés
+	// Films marquants (pas de note perso) : coups de cœur, puis les plus revus, puis les mieux notés sur TMDB
 	response.HighlightMovies = append(response.HighlightMovies, yearMovies...)
 	sort.SliceStable(response.HighlightMovies, func(i, j int) bool {
 		a, b := response.HighlightMovies[i], response.HighlightMovies[j]
 		if a.IsFavorite != b.IsFavorite {
 			return a.IsFavorite
+		}
+		if a.RewatchCount != b.RewatchCount {
+			return a.RewatchCount > b.RewatchCount
 		}
 		return a.VoteAverage > b.VoteAverage
 	})

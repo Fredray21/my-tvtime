@@ -166,6 +166,34 @@ export interface CreditsResponse {
     crew: CrewMember[];
 }
 
+// --- CALENDRIER (À VENIR) ---
+export interface CalendarItem {
+    type: 'episode' | 'movie';
+    id: number;
+    title: string;
+    poster_path: string;
+    backdrop_path: string;
+    air_date: string;
+
+    season_number?: number;
+    episode_number?: number;
+    episode_name?: string;
+    still_path?: string;
+    runtime?: number;
+    episode_type?: 'standard' | 'finale' | 'mid_season' | string;
+    is_premiere?: boolean;
+    is_watched: boolean;
+    network?: string;
+
+    release_type?: 'theatrical' | 'digital' | 'physical' | 'tv' | 'premiere' | '';
+    is_french_date?: boolean;
+}
+
+export interface CalendarResponse {
+    today: string;
+    days: { date: string; items: CalendarItem[] }[];
+}
+
 // --- FICHE PERSONNE (ACTEUR / RÉALISATEUR) ---
 // --- OÙ REGARDER (données JustWatch via TMDB) ---
 export interface WatchProvider {
@@ -290,6 +318,11 @@ export const createMediaApi = (api: AxiosInstance) => ({
 
     getMediaCredits: async (id: number, mediaType: 'movie' | 'tv'): Promise<CreditsResponse> => {
         const response = await api.get(`/${mediaType}s/${id}/credits`);
+        return response.data;
+    },
+
+    getCalendar: async (mediaType: 'movie' | 'tv', days: number): Promise<CalendarResponse> => {
+        const response = await api.get<CalendarResponse>('/user/calendar', { params: { type: mediaType, days } });
         return response.data;
     },
 

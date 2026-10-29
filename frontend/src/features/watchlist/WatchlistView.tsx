@@ -2,22 +2,13 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { useApi } from '../../context/ApiContext';
 import { useCallback, useRef } from 'react';
 import { MediaCard } from '../../components/MediaCard';
+import { UpcomingCalendar } from '../../components/UpcomingCalendar';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 import { triggerVibration } from '../../utils/haptics';
 import { Grid, List, Tv, Hourglass, PlayCircle, CheckCircle, Popcorn } from 'lucide-react';
 
 interface WatchlistViewProps {
     mediaType: 'movie' | 'tv';
-}
-
-interface SeriesItem {
-    id: number;
-    name: string;
-    status_local: string;
-    next_episode_to_air?: {
-        air_date: string;
-    };
-    [key: string]: any;
 }
 
 export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
@@ -42,13 +33,10 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         hasNextPage,
         isFetchingNextPage
     } = useInfiniteQuery({
-        queryKey: ['watchlist', mediaType, activeTab],
-        queryFn: ({ pageParam = 1 }) => {
-            if (activeTab === 'upcoming') {
-                return api.media.getMediaUpcoming(mediaType, pageParam);
-            }
-            return api.media.getWatchlist(pageParam, mediaType);
-        },
+        queryKey: ['watchlist', mediaType, 'to_watch'],
+        queryFn: ({ pageParam = 1 }) => api.media.getWatchlist(pageParam, mediaType),
+        // L'onglet "À venir" a son propre calendrier (UpcomingCalendar)
+        enabled: activeTab === 'to_watch',
         initialPageParam: 1,
         getNextPageParam: (lastPage) => lastPage.has_next_page ? lastPage.page + 1 : undefined,
     });
@@ -105,17 +93,6 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         });
     }
 
-    const groupedByDate = activeTab === 'upcoming'
-        ? displayData.reduce((acc, item) => {
-            const date = item.next_episode_to_air?.air_date || item.release_date || 'Inconnu';
-            if (!acc[date]) acc[date] = [];
-            acc[date].push(item);
-            return acc;
-        }, {} as Record<string, typeof displayData>)
-        : {};
-
-    const sortedDates = Object.keys(groupedByDate).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-
     if (isLoading) return (
         <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500 animate-pulse">
             <div className="flex items-center gap-2">
@@ -159,36 +136,16 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
             </div>
 
             <div className="max-w-7xl mx-auto px-4 w-full mt-6">
-                {displayData.length === 0 ? (
+                {activeTab === 'upcoming' ? (
+                    <UpcomingCalendar mediaType={mediaType} />
+                ) : displayData.length === 0 ? (
                     <div className="flex flex-col items-center justify-center mt-10 p-6 bg-zinc-900/50 rounded-2xl border border-zinc-800/50 max-w-md mx-auto">
                         <Popcorn className="w-12 h-12 text-zinc-700 mb-4" />
                         <h2 className="text-lg font-bold mb-2">Ta liste est vide</h2>
                     </div>
                 ) : (
                     <div className="flex flex-col gap-8">
-                        {activeTab === 'upcoming' ? (
-                            sortedDates.map((date) => (
-                                <div key={date}>
-                                    <h3 className="text-sm font-bold text-purple-400 mb-4 uppercase tracking-wider">
-                                        {date === 'Inconnu' ? 'Date inconnue' : new Date(date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-                                    </h3>
-                                    <div className={viewMode === 'card' ? "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3" : "flex flex-col gap-3"}>
-                                        {groupedByDate[date].map((item: SeriesItem) => (
-                                            <MediaCard
-                                                key={item.id}
-                                                item={item}
-                                                layout={viewMode}
-                                                isUpcoming
-                                                fallbackMediaType={mediaType}
-                                                onStatusChange={handleStatusChange}
-                                                onWatchEpisode={handleWatchEpisode}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            mediaType === 'tv' ? (
+                        {mediaType === 'tv' ? (
                                 [
                                     { id: 'watching', title: 'En cours', icon: <Tv size={18} /> },
                                     { id: 'pending', title: 'En attente', icon: <Hourglass size={18} /> },
@@ -228,7 +185,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                                     ))}
                                 </div>
                             )
-                        )}
+                        }
 
                         {hasNextPage && (
                             <div ref={bottomBoundaryRef} className="w-full py-6 flex justify-center text-zinc-500 font-semibold">

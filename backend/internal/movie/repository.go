@@ -270,7 +270,7 @@ func (r *Repository) GetUpcomingMoviesRecords(userID string, page int, limit int
 	var records []MovieRecord
 	for rows.Next() {
 		var rec MovieRecord
-		err := rows.Scan(&rec.TMDBMovieID, &rec.Status, &rec.IsFavorite, &rec.RewatchCount, &rec.ReleaseDate, &rec.CreatedAt, &rec.UpdatedAt)
+		err := rows.Scan(&rec.TMDBMovieID, &rec.Status, &rec.IsFavorite, &rec.RewatchCount, &rec.CreatedAt, &rec.UpdatedAt, &rec.ReleaseDate)
 		if err != nil {
 			return nil, err
 		}

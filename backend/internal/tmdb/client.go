@@ -129,6 +129,12 @@ func (c *Client) GetWatchProviders(mediaType string, tmdbID int) ([]byte, error)
 	return c.get(url)
 }
 
+// GetMovieReleaseDates récupère les dates de sortie par pays (cinéma, VOD...) d'un film
+func (c *Client) GetMovieReleaseDates(tmdbMovieID int) ([]byte, error) {
+	url := fmt.Sprintf("%s/movie/%d/release_dates?api_key=%s", c.baseURL, tmdbMovieID, c.apiKey)
+	return c.get(url)
+}
+
 func (c *Client) get(reqURL string) ([]byte, error) {
 	if cachedData, found := c.memCache.Get(reqURL); found {
 		return cachedData.([]byte), nil // Trouvé ! On renvoie instantanément

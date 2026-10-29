@@ -22,6 +22,7 @@ export interface WrappedTitle {
     backdrop_path: string;
     vote_average: number;
     is_favorite: boolean;
+    rewatch_count?: number;
     watched_at?: string;
 }
 

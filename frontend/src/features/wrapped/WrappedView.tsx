@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Clapperboard, Tv, Sparkles, CalendarDays, Repeat, Flame, Zap, CalendarCheck, Trophy, Heart } from 'lucide-react';
+import { Clapperboard, Tv, Sparkles, CalendarDays, Repeat, Flame, Zap, CalendarCheck, Trophy, Heart, Share2 } from 'lucide-react';
 import { useApi } from '../../context/ApiContext';
 import { triggerVibration } from '../../utils/haptics';
 import type { WrappedTitle } from '../../api/userApi';
+import { ShareWrappedModal } from './ShareWrappedModal';
 
 const MONTHS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
 const MONTHS_FULL = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -59,6 +61,7 @@ export const WrappedView = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const requestedYear = Number(searchParams.get('year')) || undefined;
+    const [isShareOpen, setIsShareOpen] = useState(false);
 
     const { data: wrapped, isLoading, isError } = useQuery({
         queryKey: ['wrapped', requestedYear ?? 'default'],
@@ -117,6 +120,18 @@ export const WrappedView = () => {
                         <polyline points="12 19 5 12 12 5"></polyline>
                     </svg>
                 </button>
+
+                {!isEmpty && (
+                    <button
+                        onClick={() => {
+                            triggerVibration([15, 30]);
+                            setIsShareOpen(true);
+                        }}
+                        className="absolute top-4 right-4 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-2 rounded-full text-white text-xs font-bold hover:bg-black/60 transition z-10"
+                    >
+                        <Share2 size={16} /> Partager
+                    </button>
+                )}
 
                 <div className="absolute bottom-6 left-0 right-0 px-4 max-w-4xl mx-auto">
                     <p className="text-purple-300 text-xs font-bold uppercase tracking-[0.3em] mb-1 flex items-center gap-2">
@@ -241,6 +256,7 @@ export const WrappedView = () => {
                         {wrapped.highlight_movies.length > 0 && (
                             <div className="mb-10">
                                 <SectionTitle>Tes films marquants</SectionTitle>
+                                <p className="text-zinc-500 text-xs -mt-2 mb-4">Tes coups de cœur d'abord, puis les films revus, puis les mieux notés sur TMDB.</p>
                                 <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-none snap-x">
                                     {wrapped.highlight_movies.map(movie => <PosterLink key={movie.id} title={movie} />)}
                                 </div>
@@ -348,6 +364,16 @@ export const WrappedView = () => {
                             </div>
                         )}
 
+                        <button
+                            onClick={() => {
+                                triggerVibration([15, 30]);
+                                setIsShareOpen(true);
+                            }}
+                            className="w-full mb-8 py-4 rounded-2xl font-black text-base bg-gradient-to-r from-purple-500 to-fuchsia-500 text-black flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                        >
+                            <Share2 size={18} /> Partager mon année {wrapped.year}
+                        </button>
+
                         {wrapped.backfill_days > 0 && (
                             <p className="text-[10px] text-zinc-600 text-center italic">
                                 {wrapped.backfill_days} journée{wrapped.backfill_days > 1 ? 's' : ''} de rattrapage (plus de 16h ajoutées d'un coup) {wrapped.backfill_days > 1 ? 'sont comptées' : 'est comptée'} dans les totaux mais pas dans les records.
@@ -356,6 +382,8 @@ export const WrappedView = () => {
                     </>
                 )}
             </div>
+
+            {isShareOpen && <ShareWrappedModal wrapped={wrapped} onClose={() => setIsShareOpen(false)} />}
         </div>
     );
 };

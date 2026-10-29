@@ -8,6 +8,7 @@ import { CheckCircle } from 'lucide-react';
 import { SeasonAccordion } from '../../components/SeasonAccordion';
 import type { UpdateStatusDTO } from '../../api/mediaApi';
 import { MediaTrailers } from '../../components/MediaTrailers';
+import { WatchProviders } from '../../components/WatchProviders';
 import { SeasonStatsGraph } from '../../components/SeasonStatsGraph';
 
 export const TVDetailsView = () => {
@@ -169,6 +170,9 @@ export const TVDetailsView = () => {
                         {series.status_local && series.status_local !== 'not_tracked' ? `➖ Ne plus suivre` : '➕ Suivre la série'}
                     </button>
                 </div>
+
+                {/* Où regarder */}
+                <WatchProviders id={seriesId} mediaType={mediaType} />
 
                 {/* Synopsis */}
                 <div className="mb-8">

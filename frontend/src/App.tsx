@@ -9,6 +9,7 @@ import { ProfileView } from './features/profile/ProfileView';
 import { WatchlistView } from './features/watchlist/WatchlistView';
 import { TVDetailsView } from './features/tv/TVDetailsView';
 import { PersonDetailsView } from './features/person/PersonDetailsView';
+import { WrappedView } from './features/wrapped/WrappedView';
 import { MediaGridPage } from './components/MediaGridPage';
 import { Clock, Heart } from 'lucide-react';
 import { useApi } from './context/ApiContext';
@@ -58,6 +59,7 @@ export const App = () => {
                 { path: "/movie/:id", element: <MovieDetailsView /> },
                 { path: "/tv/:id", element: <TVDetailsView /> },
                 { path: "/person/:id", element: <PersonDetailsView /> },
+                { path: "/wrapped", element: <WrappedView /> },
                 { 
                     path: "/favorites/movies", 
                     element: (

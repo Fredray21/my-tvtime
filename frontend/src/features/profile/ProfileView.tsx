@@ -6,7 +6,8 @@ import { formatRuntime } from '../../utils/timeFormat';
 import { LatestSection } from '../../components/LatestSection';
 import { triggerVibration } from '../../utils/haptics';
 import { TVTimeImport } from '../../components/TVTimeImport';
-import { Clapperboard, FileUp, Tv, Heart, Clock } from 'lucide-react';
+import { Clapperboard, FileUp, Tv, Heart, Clock, Sparkles, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export const ProfileView = () => {
     const { user, isLoaded } = useUser();
@@ -136,6 +137,22 @@ export const ProfileView = () => {
                         </button>
                     </div>
                 </div>
+
+                {/* WRAPPED : récap annuel */}
+                <Link
+                    to="/wrapped"
+                    onClick={() => triggerVibration([15, 30])}
+                    className="mb-6 flex items-center gap-4 p-4 rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-600/30 via-purple-900/20 to-zinc-900 hover:border-purple-400/50 transition-all active:scale-[0.98]"
+                >
+                    <div className="w-12 h-12 rounded-xl bg-purple-500 text-black flex items-center justify-center flex-shrink-0">
+                        <Sparkles size={22} />
+                    </div>
+                    <div className="flex-grow">
+                        <p className="text-sm font-bold text-white">Ton année en revue</p>
+                        <p className="text-xs text-zinc-400">Heures, séries, acteurs, records...</p>
+                    </div>
+                    <ChevronRight size={18} className="text-zinc-500" />
+                </Link>
 
                 {/* STATISTIQUES */}
                 <div className="mb-10">

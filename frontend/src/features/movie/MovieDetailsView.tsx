@@ -5,6 +5,7 @@ import { MediaCard } from '../../components/MediaCard';
 import { triggerVibration } from '../../utils/haptics';
 import type { UpdateStatusDTO } from '../../api/mediaApi';
 import { MediaTrailers } from '../../components/MediaTrailers';
+import { WatchProviders } from '../../components/WatchProviders';
 
 export const MovieDetailsView = () => {
     const { id } = useParams<{ id: string }>();
@@ -253,6 +254,9 @@ export const MovieDetailsView = () => {
                         </>
                     )}
                 </div>
+
+                {/* Où regarder */}
+                <WatchProviders id={movieId} mediaType={mediaType} />
 
                 {/* Genres */}
                 {movie.genres && movie.genres.length > 0 && (

@@ -89,3 +89,26 @@ func (h *Handler) HandleGetUserStats(c *gin.Context) {
 
 	c.JSON(http.StatusOK, stats)
 }
+
+// GET /api/v1/user/wrapped?year=2025 (année courante, ou dernière année active, par défaut)
+func (h *Handler) HandleGetWrapped(c *gin.Context) {
+	userID, exists := c.Get("clerkUserID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Non autorisé"})
+		return
+	}
+
+	year, err := strconv.Atoi(c.DefaultQuery("year", "0"))
+	if err != nil || year < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Année invalide"})
+		return
+	}
+
+	wrapped, err := h.service.GetWrapped(userID.(string), year)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, wrapped)
+}

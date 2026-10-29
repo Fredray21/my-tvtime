@@ -9,6 +9,7 @@ import (
 	"github.com/Fredray21/my-tvtime/internal/middleware"
 	"github.com/Fredray21/my-tvtime/internal/movie"
 	"github.com/Fredray21/my-tvtime/internal/person"
+	"github.com/Fredray21/my-tvtime/internal/providers"
 	"github.com/Fredray21/my-tvtime/internal/search"
 	"github.com/Fredray21/my-tvtime/internal/tmdb"
 	"github.com/Fredray21/my-tvtime/internal/tv"
@@ -52,6 +53,7 @@ func main() {
 	userHandler := user.NewHandler(userService)
 	searchHandler := search.NewHandler(searchService)
 	personHandler := person.NewHandler(personService)
+	providersHandler := providers.NewHandler(tmdbClient)
 
 	taskManager := importservice.NewTaskManager()
 	tvTimeImporter := importservice.NewTVTimeImporter(tmdbClient, taskManager)
@@ -87,6 +89,7 @@ func main() {
 			movieRoutes.GET("/:id/similar", movieHandler.HandleGetSimilarMovies)
 			movieRoutes.GET("/upcoming", movieHandler.HandleGetUpcomingMovies)
 			movieRoutes.GET("/:id/credits", movieHandler.HandlerGetMovieCredits)
+			movieRoutes.GET("/:id/providers", providersHandler.HandleGetProviders("movie"))
 		}
 
 		tvRoutes := api.Group("/tvs")
@@ -100,6 +103,7 @@ func main() {
 			tvRoutes.GET("/:id/similar", tvHandler.HandlerGetSimilarSeries)
 			tvRoutes.GET("/upcoming", tvHandler.HandlerGetUpcomingSeries)
 			tvRoutes.GET("/:id/credits", tvHandler.HandlerGetSerieCredits)
+			tvRoutes.GET("/:id/providers", providersHandler.HandleGetProviders("tv"))
 
 
 			// Épisodes et Saisons
@@ -121,6 +125,7 @@ func main() {
 		api.GET("/user/stats", userHandler.HandleGetUserStats)
 		api.GET("/user/movies/latest", userHandler.HandleGetLatestMovies)
 		api.GET("/user/tvs/latest", userHandler.HandleGetLatestTV)
+		api.GET("/user/wrapped", userHandler.HandleGetWrapped)
 
 		// Import
 		api.POST("/import/tvtime/upload", importHandler.HandleUploadTVTime)

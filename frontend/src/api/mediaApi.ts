@@ -167,6 +167,23 @@ export interface CreditsResponse {
 }
 
 // --- FICHE PERSONNE (ACTEUR / RÉALISATEUR) ---
+// --- OÙ REGARDER (données JustWatch via TMDB) ---
+export interface WatchProvider {
+    provider_id: number;
+    provider_name: string;
+    logo_path: string;
+    display_priority: number;
+}
+
+export interface WatchProvidersResponse {
+    link?: string;
+    flatrate?: WatchProvider[] | null;
+    free?: WatchProvider[] | null;
+    ads?: WatchProvider[] | null;
+    rent?: WatchProvider[] | null;
+    buy?: WatchProvider[] | null;
+}
+
 export interface PersonCredit extends MediaCustomResponse {
     character?: string;
     job?: string;
@@ -273,6 +290,11 @@ export const createMediaApi = (api: AxiosInstance) => ({
 
     getMediaCredits: async (id: number, mediaType: 'movie' | 'tv'): Promise<CreditsResponse> => {
         const response = await api.get(`/${mediaType}s/${id}/credits`);
+        return response.data;
+    },
+
+    getWatchProviders: async (id: number, mediaType: 'movie' | 'tv'): Promise<WatchProvidersResponse> => {
+        const response = await api.get<WatchProvidersResponse>(`/${mediaType}s/${id}/providers`);
         return response.data;
     },
 

@@ -6,6 +6,7 @@ import { useApi } from '../../context/ApiContext';
 import { formatRuntime } from '../../utils/timeFormat';
 import { LatestSection } from '../../components/LatestSection';
 import { triggerVibration } from '../../utils/haptics';
+import { readOfflineSession } from '../../offline/persistence';
 
 export const ProfileView = () => {
     const { user, isLoaded } = useUser();
@@ -47,18 +48,16 @@ export const ProfileView = () => {
 
     const stats = statsQuery.data;
 
-    if (!isLoaded) {
+    // Hors ligne, Clerk ne démarre pas : on affiche l'identité mémorisée sur l'appareil
+    const offlineSession = isLoaded ? null : readOfflineSession();
+    const profile = user
+        ? { fullName: user.fullName, email: user.primaryEmailAddress?.emailAddress ?? null, imageUrl: user.imageUrl }
+        : offlineSession;
+
+    if (!profile) {
         return (
             <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500 animate-pulse">
-                Chargement du profil...
-            </div>
-        );
-    }
-
-    if (!user) {
-        return (
-            <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-red-500">
-                Utilisateur non trouvé.
+                {isLoaded ? 'Utilisateur non trouvé.' : 'Chargement du profil...'}
             </div>
         );
     }
@@ -80,13 +79,13 @@ export const ProfileView = () => {
                 {/* EN-TÊTE COMPACT */}
                 <div className="flex items-center gap-3 mb-6">
                     <img
-                        src={user.imageUrl}
+                        src={profile.imageUrl ?? undefined}
                         alt="Avatar"
                         className="w-12 h-12 rounded-full border-2 border-zinc-800 object-cover flex-shrink-0"
                     />
                     <div className="flex-grow min-w-0">
-                        <h1 className="text-lg font-bold text-zinc-100 leading-tight line-clamp-1">{user.fullName || 'Utilisateur'}</h1>
-                        <p className="text-zinc-500 text-xs line-clamp-1">{user.primaryEmailAddress?.emailAddress}</p>
+                        <h1 className="text-lg font-bold text-zinc-100 leading-tight line-clamp-1">{profile.fullName || 'Utilisateur'}</h1>
+                        <p className="text-zinc-500 text-xs line-clamp-1">{profile.email}</p>
                     </div>
                     <Link
                         to="/settings"

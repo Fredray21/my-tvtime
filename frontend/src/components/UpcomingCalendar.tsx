@@ -1,10 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, CheckCircle, Film, Loader, Popcorn, Sparkles, Flag, Clapperboard, MonitorPlay } from 'lucide-react';
+import { CalendarClock, CheckCircle, Film, Popcorn, Sparkles, Flag, Clapperboard, MonitorPlay } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { triggerVibration } from '../utils/haptics';
-import type { CalendarItem } from '../api/mediaApi';
+import type { CalendarItem, CalendarResponse } from '../api/mediaApi';
+import { EPISODE_MUTATION_KEY, type EpisodeMutationVars } from '../offline/mutations';
+import { OfflineNotice } from '../offline/OfflineNotice';
 
 interface UpcomingCalendarProps {
     mediaType: 'movie' | 'tv';
@@ -56,23 +58,30 @@ const groupEntries = (items: CalendarItem[]): CalendarEntry[] => {
 export const UpcomingCalendar: React.FC<UpcomingCalendarProps> = ({ mediaType }) => {
     const api = useApi();
     const queryClient = useQueryClient();
-    const [pendingEpisode, setPendingEpisode] = useState<string | null>(null);
 
-    const { data, isLoading, isError } = useQuery({
+    const { data, isLoading, isError, fetchStatus } = useQuery({
         queryKey: ['calendar', mediaType],
         // Séries : 3 mois devant soi / Films : les sorties sont annoncées bien plus tôt
         queryFn: () => api.media.getCalendar(mediaType, mediaType === 'tv' ? 90 : 365),
         staleTime: 1000 * 60 * 15,
     });
 
-    const watchMutation = useMutation({
-        mutationFn: (item: CalendarItem) => api.media.watchEpisode(item.id, item.season_number!, item.episode_number!),
-        onMutate: (item) => setPendingEpisode(`${item.id}-${item.season_number}-${item.episode_number}`),
-        onSettled: () => {
-            setPendingEpisode(null);
-            queryClient.invalidateQueries({ queryKey: ['calendar'] });
-            queryClient.invalidateQueries({ queryKey: ['watchlist', 'tv'] });
-            queryClient.invalidateQueries({ queryKey: ['userStats'] });
+    // Cocher un épisode : affichage immédiat, mis en file d'attente si hors ligne
+    const watchMutation = useMutation<unknown, Error, EpisodeMutationVars>({
+        mutationKey: EPISODE_MUTATION_KEY,
+        onMutate: async (vars) => {
+            await queryClient.cancelQueries({ queryKey: ['calendar', mediaType] });
+            queryClient.setQueryData<CalendarResponse>(['calendar', mediaType], old => old && {
+                ...old,
+                days: old.days.map(day => ({
+                    ...day,
+                    items: day.items.map(item =>
+                        item.type === 'episode' && item.id === vars.seriesId && item.season_number === vars.seasonNumber && item.episode_number === vars.episodeNumber
+                            ? { ...item, is_watched: true }
+                            : item
+                    ),
+                })),
+            });
         },
     });
 
@@ -99,6 +108,8 @@ export const UpcomingCalendar: React.FC<UpcomingCalendarProps> = ({ mediaType })
 
         return { recent, upcoming, weekStrip };
     }, [data]);
+
+    if (isLoading && fetchStatus === 'paused') return <OfflineNotice what="Ce calendrier" />;
 
     if (isLoading) {
         return (
@@ -127,7 +138,6 @@ export const UpcomingCalendar: React.FC<UpcomingCalendarProps> = ({ mediaType })
         const isFullSeason = episodes.length > 1 && first.is_premiere && hasFinale;
         const unwatched = episodes.filter(ep => !ep.is_watched);
         const canMarkWatched = !isMovie && episodes.length === 1 && !main.is_watched && daysLeft <= 0;
-        const episodeId = `${main.id}-${main.season_number}-${main.episode_number}`;
 
         return (
             <div
@@ -187,14 +197,13 @@ export const UpcomingCalendar: React.FC<UpcomingCalendarProps> = ({ mediaType })
 
                 {canMarkWatched ? (
                     <button
-                        disabled={watchMutation.isPending}
                         onClick={() => {
                             triggerVibration([20, 80, 20]);
-                            watchMutation.mutate(main);
+                            watchMutation.mutate({ seriesId: main.id, seasonNumber: main.season_number!, episodeNumber: main.episode_number!, action: 'watch' });
                         }}
                         className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-zinc-800/80 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-500 rounded-full transition-all border border-zinc-700/50 disabled:opacity-50"
                     >
-                        {pendingEpisode === episodeId ? <Loader size={18} className="animate-spin" /> : <CheckCircle size={20} strokeWidth={2.5} />}
+                        <CheckCircle size={20} strokeWidth={2.5} />
                     </button>
                 ) : daysLeft > 0 ? (
                     <div className="flex-shrink-0 flex items-center gap-1 bg-purple-500 text-black px-1.5 py-0.5 rounded text-[11px] font-black">

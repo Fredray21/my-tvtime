@@ -6,6 +6,7 @@ import { useApi } from '../../context/ApiContext';
 import { MediaCard } from '../../components/MediaCard';
 import { triggerVibration } from '../../utils/haptics';
 import type { PersonCredit, PersonCreditGroup } from '../../api/mediaApi';
+import { OfflineNotice } from '../../offline/OfflineNotice';
 
 type MediaTab = 'movie' | 'tv';
 type RoleTab = 'cast' | 'crew';
@@ -79,7 +80,7 @@ export const PersonDetailsView = () => {
 
     const personId = Number(id);
 
-    const { data: person, isLoading, isError } = useQuery({
+    const { data: person, isLoading, isError, fetchStatus } = useQuery({
         queryKey: ['person', personId],
         queryFn: () => api.media.getPersonDetails(personId),
         enabled: !isNaN(personId),
@@ -148,6 +149,7 @@ export const PersonDetailsView = () => {
         });
     }, [credits, seenFilter, sortMode]);
 
+    if (isLoading && fetchStatus === 'paused') return <OfflineNotice what="Cette fiche" />;
     if (isLoading) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500 animate-pulse">Chargement de la fiche...</div>;
     if (isError || !person) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-red-500">Erreur lors du chargement.</div>;
 

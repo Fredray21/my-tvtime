@@ -14,6 +14,18 @@ export default defineConfig({
         importScripts: ['push-sw.js'], // Réception et affichage des notifications push (public/push-sw.js)
         clientsClaim: true, // la nouvelle version prend la main tout de suite
         skipWaiting: true,
+        // Affiches TMDB gardées en cache pour l'affichage hors ligne (taille limitée, purge si l'espace manque)
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/image\.tmdb\.org\/t\/p\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'tmdb-images',
+              expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 30, purgeOnQuotaError: true },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {

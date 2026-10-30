@@ -4,6 +4,8 @@ import { useApi } from '../../context/ApiContext';
 import { MediaCard } from '../../components/MediaCard';
 import { triggerVibration } from '../../utils/haptics';
 import type { MediaCustomResponse, UpdateStatusDTO } from '../../api/mediaApi';
+import { MEDIA_MUTATION_KEY, type MediaMutationVars } from '../../offline/mutations';
+import { OfflineNotice } from '../../offline/OfflineNotice';
 import { MediaTrailers } from '../../components/MediaTrailers';
 import { WatchProviders } from '../../components/WatchProviders';
 import { SagaProgress } from '../../components/SagaProgress';
@@ -20,7 +22,7 @@ export const MovieDetailsView = () => {
     const mediaType = 'movie';
 
     // 1. Récupération des données du film
-    const { data: movie, isLoading, isError } = useQuery({
+    const { data: movie, isLoading, isError, fetchStatus } = useQuery({
         queryKey: ['movie', mediaType, movieId],
         queryFn: () => api.media.getMediaDetails(movieId, mediaType),
         enabled: !isNaN(movieId),
@@ -40,37 +42,25 @@ export const MovieDetailsView = () => {
         enabled: !isNaN(movieId),
     });
 
-    // 2. Mutation pour modifier le statut (Optimistic UI)
-    const mutation = useMutation({
-        mutationFn: async (variables: { newStatus: UpdateStatusDTO['status_local']; isFavorite: boolean; rewatch_count: number }) => {
-            if (variables.newStatus === 'not_tracked') {
-                return api.media.removeMedia(movieId, mediaType);
-            }
+    // 2. Mutation pour modifier le statut : affichage immédiat, et mise en file d'attente si hors ligne
+    const movieKey = ['movie', mediaType, movieId];
+    const mediaMutation = useMutation<unknown, Error, MediaMutationVars, { previousMovie?: MediaCustomResponse }>({
+        mutationKey: MEDIA_MUTATION_KEY,
+        onMutate: async (vars) => {
+            await queryClient.cancelQueries({ queryKey: movieKey });
+            const previousMovie = queryClient.getQueryData<MediaCustomResponse>(movieKey);
 
-            // Sinon, on met à jour son statut
-            return api.media.updateStatus({
-                tmdb_id: movieId,
-                media_type: mediaType,
-                status_local: variables.newStatus,
-                is_favorite: variables.newStatus === 'watched' ? variables.isFavorite : false, // On ne peut pas être favori si on n'a pas vu le film
-                rewatch_count: variables.rewatch_count || 0
-            });
-        },
-        onMutate: async (variables) => {
-            await queryClient.cancelQueries({ queryKey: ['movie', mediaType, movieId] });
-            const previousMovie = queryClient.getQueryData(['movie', mediaType, movieId]);
-
-            queryClient.setQueryData<MediaCustomResponse>(['movie', mediaType, movieId], (old) => {
+            queryClient.setQueryData<MediaCustomResponse>(movieKey, (old) => {
                 if (!old) return old;
-
-                const isFirstWatch = old.status_local !== 'watched' && variables.newStatus === 'watched';
-
+                const newStatus = vars.kind === 'remove' ? 'not_tracked' : vars.dto.status_local;
+                const isFirstWatch = old.status_local !== 'watched' && newStatus === 'watched';
                 const now = new Date().toISOString();
 
                 return {
                     ...old,
-                    status_local: variables.newStatus,
-                    is_favorite: variables.isFavorite,
+                    status_local: newStatus,
+                    is_favorite: vars.kind === 'remove' ? false : vars.dto.is_favorite,
+                    rewatch_count: vars.kind === 'remove' ? 0 : vars.dto.rewatch_count,
                     created_at: isFirstWatch ? now : old.created_at,
                     updated_at: now,
                 };
@@ -79,18 +69,30 @@ export const MovieDetailsView = () => {
         },
         onError: (err, _, context) => {
             if (context?.previousMovie) {
-                queryClient.setQueryData(['movie', mediaType, movieId], context.previousMovie);
+                queryClient.setQueryData(movieKey, context.previousMovie);
             }
             console.error("Erreur de mutation :", err);
         },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ['movie', mediaType, movieId] });
-            queryClient.invalidateQueries({ queryKey: ['watchlist'] });
-            queryClient.invalidateQueries({ queryKey: ['saga'] });
-            queryClient.invalidateQueries({ queryKey: ['sagas'] });
-        },
     });
 
+    const changeStatus = (variables: { newStatus: UpdateStatusDTO['status_local']; isFavorite: boolean; rewatch_count: number }) => {
+        if (variables.newStatus === 'not_tracked') {
+            mediaMutation.mutate({ kind: 'remove', tmdbId: movieId, mediaType });
+            return;
+        }
+        mediaMutation.mutate({
+            kind: 'status',
+            dto: {
+                tmdb_id: movieId,
+                media_type: mediaType,
+                status_local: variables.newStatus,
+                is_favorite: variables.newStatus === 'watched' ? variables.isFavorite : false, // On ne peut pas être favori si on n'a pas vu le film
+                rewatch_count: variables.rewatch_count || 0,
+            },
+        });
+    };
+
+    if (isLoading && fetchStatus === 'paused') return <OfflineNotice what="Cette fiche" />;
     if (isLoading) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500 animate-pulse">Chargement de la fiche...</div>;
     if (isError || !movie) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-red-500">Erreur lors du chargement.</div>;
 
@@ -138,7 +140,7 @@ export const MovieDetailsView = () => {
                     <button
                         onClick={() => {
                             triggerVibration([30, 100, 30])
-                            mutation.mutate({ newStatus: movie.status_local, isFavorite: !movie.is_favorite, rewatch_count: movie.rewatch_count })
+                            changeStatus({ newStatus: movie.status_local, isFavorite: !movie.is_favorite, rewatch_count: movie.rewatch_count })
                         }}
                         className={`absolute top-4 right-4 flex items-center justify-center w-10 h-10 rounded-full text-white transition bg-black/40 hover:bg-black/60 aspect-square`}
                     >
@@ -188,7 +190,7 @@ export const MovieDetailsView = () => {
                                         </>,
                                         confirmLabel: 'Retirer',
                                     });
-                                    if (confirmed) mutation.mutate({ newStatus: 'not_tracked', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
+                                    if (confirmed) changeStatus({ newStatus: 'not_tracked', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
                                 }}
                                 className="flex-[2] py-3 rounded-xl font-bold text-sm bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/30 transition-all"
                             >
@@ -201,7 +203,7 @@ export const MovieDetailsView = () => {
                                 <button
                                     onClick={() => {
                                         triggerVibration();
-                                        mutation.mutate({
+                                        changeStatus({
                                             newStatus: 'watched',
                                             isFavorite: movie.is_favorite,
                                             rewatch_count: Math.max(0, (movie.rewatch_count || 0) - 1)
@@ -222,7 +224,7 @@ export const MovieDetailsView = () => {
                                 <button
                                     onClick={() => {
                                         triggerVibration();
-                                        mutation.mutate({
+                                        changeStatus({
                                             newStatus: 'watched',
                                             isFavorite: movie.is_favorite,
                                             rewatch_count: (movie.rewatch_count || 0) + 1
@@ -256,7 +258,7 @@ export const MovieDetailsView = () => {
                                         triggerVibration([50, 80, 20]);
                                     }
 
-                                    mutation.mutate({ newStatus: newStatus, isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
+                                    changeStatus({ newStatus: newStatus, isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
                                 }}
                                 className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${movie.status_local === 'watchlist'
                                     ? 'bg-purple-500 text-black hover:bg-purple-400'
@@ -269,7 +271,7 @@ export const MovieDetailsView = () => {
                             <button
                                 onClick={() => {
                                     triggerVibration([20, 80, 50]);
-                                    mutation.mutate({ newStatus: 'watched', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
+                                    changeStatus({ newStatus: 'watched', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
                                 }}
                                 className="flex-1 py-3 rounded-xl font-bold text-sm bg-zinc-800 text-white hover:bg-zinc-700 transition-all"
                             >

@@ -6,7 +6,9 @@ import { MediaCard } from '../../components/MediaCard';
 import { triggerVibration } from '../../utils/haptics';
 import { CheckCircle } from 'lucide-react';
 import { SeasonAccordion } from '../../components/SeasonAccordion';
-import type { MediaCustomResponse, UpdateStatusDTO } from '../../api/mediaApi';
+import type { MediaCustomResponse, SeasonCustomResponse, UpdateStatusDTO } from '../../api/mediaApi';
+import { MEDIA_MUTATION_KEY, type MediaMutationVars } from '../../offline/mutations';
+import { OfflineNotice } from '../../offline/OfflineNotice';
 import { MediaTrailers } from '../../components/MediaTrailers';
 import { WatchProviders } from '../../components/WatchProviders';
 import { useConfirm } from '../../hooks/useConfirm';
@@ -25,7 +27,7 @@ export const TVDetailsView = () => {
     const [isOverviewExpanded, setIsOverviewExpanded] = useState<boolean>(false);
 
     // Récupération des données
-    const { data: series, isLoading, isError } = useQuery({
+    const { data: series, isLoading, isError, fetchStatus } = useQuery({
         queryKey: ['tv', seriesId],
         queryFn: () => api.media.getMediaDetails(seriesId, mediaType),
         enabled: !isNaN(seriesId),
@@ -45,60 +47,56 @@ export const TVDetailsView = () => {
         enabled: !isNaN(seriesId) && !!series,
     });
 
-    const globalMutation = useMutation({
-        mutationFn: async (variables: { newStatus: UpdateStatusDTO['status_local']; isFavorite: boolean }) => {
-            if (variables.newStatus === 'not_tracked') {
-                return api.media.removeMedia(seriesId, mediaType);
-            }
-            return api.media.updateStatus({
-                tmdb_id: seriesId,
-                media_type: mediaType,
-                status_local: variables.newStatus,
-                is_favorite: variables.isFavorite,
-                rewatch_count: 0
-            });
-        },
-        onMutate: async (variables) => {
-            await queryClient.cancelQueries({ queryKey: ['tv', seriesId] });
-            const previousSeries = queryClient.getQueryData(['tv', seriesId]);
+    // Suivre / ne plus suivre / favori : affichage immédiat, et mise en file d'attente si hors ligne
+    const seriesKey = ['tv', seriesId];
+    const mediaMutation = useMutation<unknown, Error, MediaMutationVars, { previousSeries?: MediaCustomResponse }>({
+        mutationKey: MEDIA_MUTATION_KEY,
+        onMutate: async (vars) => {
+            await queryClient.cancelQueries({ queryKey: seriesKey });
+            const previousSeries = queryClient.getQueryData<MediaCustomResponse>(seriesKey);
+            const isUnfollow = vars.kind === 'remove';
 
-            queryClient.setQueryData<MediaCustomResponse>(['tv', seriesId], (old) => {
+            queryClient.setQueryData<MediaCustomResponse>(seriesKey, (old) => {
                 if (!old) return old;
-
-                let updatedSeasons = old.seasons;
-
-                // Si l'utilisateur clique sur "Ne plus suivre"
-                if (variables.newStatus === 'not_tracked' && old.seasons) {
-                    // 1. On remet tous les compteurs de saisons à 0 instantanément
-                    updatedSeasons = old.seasons.map(s => ({ ...s, watched_count: 0 }));
-
-                    // 2. On vide le cache précis des épisodes pour forcer un rechargement si on ré-ouvre l'accordéon
-                    queryClient.removeQueries({ queryKey: ['tv', seriesId, 'season'] });
-                }
-
                 return {
                     ...old,
-                    status_local: variables.newStatus,
-                    is_favorite: variables.newStatus === 'not_tracked' ? false : variables.isFavorite,
-                    seasons: updatedSeasons
+                    status_local: isUnfollow ? 'not_tracked' : vars.dto.status_local,
+                    is_favorite: isUnfollow ? false : vars.dto.is_favorite,
+                    // "Ne plus suivre" efface l'historique : tous les compteurs de saisons repassent à 0
+                    seasons: isUnfollow ? old.seasons?.map(s => ({ ...s, watched_count: 0 })) : old.seasons,
                 };
             });
+
+            if (isUnfollow) {
+                // Épisodes déjà chargés : on les décoche (plutôt que de vider le cache, utile hors ligne)
+                queryClient.setQueriesData<SeasonCustomResponse>({ queryKey: [...seriesKey, 'season'] }, old => old && {
+                    ...old,
+                    episodes: old.episodes.map(ep => ({ ...ep, is_watched: false, rewatch_count: 0 })),
+                });
+            }
 
             return { previousSeries };
         },
         onError: (_, __, context) => {
-            // En cas d'erreur réseau, on remet les anciennes données
+            // En cas d'erreur, on remet les anciennes données
             if (context?.previousSeries) {
-                queryClient.setQueryData(['tv', seriesId], context.previousSeries);
+                queryClient.setQueryData(seriesKey, context.previousSeries);
             }
         },
-        onSettled: () => {
-            // Dans tous les cas, on re-synchronise avec le backend à la fin
-            queryClient.invalidateQueries({ queryKey: ['tv', seriesId] });
-            queryClient.invalidateQueries({ queryKey: ['watchlist'] });
-        }
     });
 
+    const changeSeriesStatus = (variables: { newStatus: UpdateStatusDTO['status_local']; isFavorite: boolean }) => {
+        if (variables.newStatus === 'not_tracked') {
+            mediaMutation.mutate({ kind: 'remove', tmdbId: seriesId, mediaType });
+            return;
+        }
+        mediaMutation.mutate({
+            kind: 'status',
+            dto: { tmdb_id: seriesId, media_type: mediaType, status_local: variables.newStatus, is_favorite: variables.isFavorite, rewatch_count: 0 },
+        });
+    };
+
+    if (isLoading && fetchStatus === 'paused') return <OfflineNotice what="Cette fiche" />;
     if (isLoading) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500 animate-pulse">Chargement de la série...</div>;
     if (isError || !series) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-red-500">Erreur lors du chargement.</div>;
 
@@ -142,7 +140,7 @@ export const TVDetailsView = () => {
 
                 {series.status_local && series.status_local !== 'not_tracked' && (
                     <button
-                        onClick={() => { triggerVibration([30, 100, 30]); globalMutation.mutate({ newStatus: series.status_local, isFavorite: !series.is_favorite }); }}
+                        onClick={() => { triggerVibration([30, 100, 30]); changeSeriesStatus({ newStatus: series.status_local, isFavorite: !series.is_favorite }); }}
                         className="absolute top-4 right-4 flex items-center justify-center w-10 h-10 rounded-full text-white transition bg-black/40 hover:bg-black/60 aspect-square"
                     >
                         {series.is_favorite ? '❤️' : '🤍'}
@@ -182,7 +180,7 @@ export const TVDetailsView = () => {
                             } else {
                                 triggerVibration([20, 80, 50]);
                             }
-                            globalMutation.mutate({ newStatus: isTracked ? 'not_tracked' : 'watching', isFavorite: series.is_favorite });
+                            changeSeriesStatus({ newStatus: isTracked ? 'not_tracked' : 'watching', isFavorite: series.is_favorite });
                         }}
                         className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${series.status_local && series.status_local !== 'not_tracked' ? 'bg-purple-500 text-black hover:bg-purple-400' : 'bg-zinc-800 text-white hover:bg-zinc-700'}`}
                     >

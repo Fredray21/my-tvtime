@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Layers, Popcorn } from 'lucide-react';
 import { useApi } from '../../context/ApiContext';
 import { triggerVibration } from '../../utils/haptics';
+import { OfflineNotice } from '../../offline/OfflineNotice';
 
 type Filter = 'in_progress' | 'complete';
 
@@ -14,7 +15,7 @@ export const SagasView = () => {
     const filter: Filter = searchParams.get('tab') === 'complete' ? 'complete' : 'in_progress';
     const setFilter = (value: Filter) => setSearchParams({ tab: value }, { replace: true, preventScrollReset: true });
 
-    const { data: sagas, isLoading, isError } = useQuery({
+    const { data: sagas, isLoading, isError, fetchStatus } = useQuery({
         queryKey: ['sagas'],
         queryFn: () => api.media.getUserSagas(),
         staleTime: 1000 * 60 * 10,
@@ -59,7 +60,9 @@ export const SagasView = () => {
             </div>
 
             <div className="max-w-4xl mx-auto px-4 w-full mt-6">
-                {isLoading ? (
+                {isLoading && fetchStatus === 'paused' ? (
+                    <OfflineNotice what="Cette page" />
+                ) : isLoading ? (
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                         {Array.from({ length: 9 }).map((_, i) => <div key={i} className="aspect-[2/3] bg-zinc-900 rounded-xl animate-pulse" />)}
                     </div>

@@ -1,8 +1,11 @@
 import { createBrowserRouter, RouterProvider, ScrollRestoration } from 'react-router-dom';
-import { useMemo } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { SignedIn, SignedOut, SignIn } from '@clerk/clerk-react';
-import { AppLayout } from './components/AppLayout';
+import { useEffect, useMemo, useState } from 'react';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { AuthGate } from './offline/AuthGate';
+import { CACHE_BUSTER, OFFLINE_MAX_AGE, queryPersister, shouldPersistQuery } from './offline/persistence';
+import { registerOfflineMutations } from './offline/mutations';
+import './offline/network';
 import { SearchView } from './features/search/SearchView';
 import { MovieDetailsView } from './features/movie/MovieDetailsView';
 import { ProfileView } from './features/profile/ProfileView';
@@ -28,12 +31,20 @@ const queryClient = new QueryClient({
         queries: {
             refetchOnWindowFocus: false,
             retry: 1,
+            // Les données restent en mémoire (et sur l'appareil) assez longtemps pour le mode hors ligne
+            gcTime: OFFLINE_MAX_AGE,
         },
     },
 });
 
 export const App = () => {
     const api = useApi();
+
+    // Les actions hors ligne doivent être connues avant la restauration du cache (pour rejouer celles en attente)
+    useState(() => registerOfflineMutations(queryClient, api.media));
+    useEffect(() => {
+        registerOfflineMutations(queryClient, api.media);
+    }, [api]);
 
     // On utilise useMemo pour créer le routeur une seule fois 
     // tout en conservant l'accès à ta variable "api"
@@ -43,15 +54,8 @@ export const App = () => {
                 <>
                     <ScrollRestoration />
                     
-                    <SignedOut>
-                        <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4">
-                            <SignIn routing="hash" />
-                        </div>
-                    </SignedOut>
-
-                    <SignedIn>
-                        <AppLayout />
-                    </SignedIn>
+                    {/* Connexion Clerk, ou ouverture hors ligne avec le cache si l'utilisateur était déjà connecté */}
+                    <AuthGate />
                 </>
             ),
             // Les routes enfants qui s'afficheront dans l'Outlet de AppLayout
@@ -128,9 +132,19 @@ export const App = () => {
     ]), [api]);
 
     return (
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider
+            client={queryClient}
+            persistOptions={{
+                persister: queryPersister,
+                maxAge: OFFLINE_MAX_AGE,
+                buster: CACHE_BUSTER,
+                dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+            }}
+            // Cache restauré : on relance les actions faites hors ligne (elles attendent le réseau si besoin)
+            onSuccess={() => queryClient.resumePausedMutations()}
+        >
             <RouterProvider router={router} />
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
     );
 };
 

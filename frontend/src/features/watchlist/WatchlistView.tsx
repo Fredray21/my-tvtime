@@ -1,8 +1,10 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useApi } from '../../context/ApiContext';
 import { useCallback, useRef } from 'react';
 import { MediaCard } from '../../components/MediaCard';
-import type { UpdateStatusDTO } from '../../api/mediaApi';
+import type { MediaCustomResponse, UpdateStatusDTO, WatchlistPaginatedResponse } from '../../api/mediaApi';
+import { EPISODE_MUTATION_KEY, MEDIA_MUTATION_KEY, type EpisodeMutationVars, type MediaMutationVars } from '../../offline/mutations';
+import { OfflineNotice } from '../../offline/OfflineNotice';
 import { UpcomingCalendar } from '../../components/UpcomingCalendar';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 import { triggerVibration } from '../../utils/haptics';
@@ -30,6 +32,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         data,
         isLoading,
         isError,
+        fetchStatus,
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage
@@ -62,23 +65,44 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         [hasNextPage, isFetchingNextPage, fetchNextPage]
     );
 
-    const mutation = useMutation({
-        mutationFn: async (variables: { movieId: number; newStatus: UpdateStatusDTO['status_local'] }) => {
-            if (variables.newStatus === 'not_tracked') {
-                return api.media.removeMedia(variables.movieId, mediaType);
-            }
-            return api.media.updateStatus({
-                tmdb_id: variables.movieId,
-                media_type: mediaType,
-                status_local: variables.newStatus,
-                is_favorite: false,
-                rewatch_count: 0,
-            });
+    // --- Actions (fonctionnent hors ligne, affichage immédiat) ---
+    const watchlistKey = ['watchlist', mediaType, 'to_watch'];
+
+    const updateWatchlistItems = (update: (item: MediaCustomResponse) => MediaCustomResponse | null) => {
+        queryClient.setQueryData<InfiniteData<WatchlistPaginatedResponse>>(watchlistKey, old => old && {
+            ...old,
+            pages: old.pages.map(page => ({
+                ...page,
+                results: page.results.map(update).filter((item): item is MediaCustomResponse => item !== null),
+            })),
+        });
+    };
+
+    const mediaMutation = useMutation<unknown, Error, MediaMutationVars>({
+        mutationKey: MEDIA_MUTATION_KEY,
+        onMutate: async (vars) => {
+            await queryClient.cancelQueries({ queryKey: watchlistKey });
+            // Un film vu (ou retiré) quitte la liste "À voir"
+            const tmdbId = vars.kind === 'remove' ? vars.tmdbId : vars.dto.tmdb_id;
+            const leavesList = vars.kind === 'remove' || vars.dto.status_local === 'watched';
+            if (leavesList) updateWatchlistItems(item => item.id === tmdbId ? null : item);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['watchlist', mediaType] });
-            queryClient.invalidateQueries({ queryKey: ['userStats'] });
-            queryClient.invalidateQueries({ queryKey: ['latestMedias'] });
+    });
+
+    const episodeMutation = useMutation<unknown, Error, EpisodeMutationVars>({
+        mutationKey: EPISODE_MUTATION_KEY,
+        onMutate: async (vars) => {
+            await queryClient.cancelQueries({ queryKey: watchlistKey });
+            // On avance au prochain épisode (saison suivante si besoin) ; le serveur recalculera à la synchronisation
+            updateWatchlistItems(item => {
+                if (item.id !== vars.seriesId || !item.next_episode_number) return item;
+                const seasonEpisodes = item.seasons?.find(s => s.season_number === vars.seasonNumber)?.episode_count ?? Infinity;
+                if (item.next_episode_number < seasonEpisodes) return { ...item, next_episode_number: item.next_episode_number + 1 };
+                const hasNextSeason = item.seasons?.some(s => s.season_number === vars.seasonNumber + 1);
+                return hasNextSeason
+                    ? { ...item, next_season_number: vars.seasonNumber + 1, next_episode_number: 1 }
+                    : { ...item, next_episode_number: 0 };
+            });
         },
     });
 
@@ -94,6 +118,8 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         });
     }
 
+    if (isLoading && fetchStatus === 'paused') return <OfflineNotice what="Cette liste" />;
+
     if (isLoading) return (
         <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500 animate-pulse">
             <div className="flex items-center gap-2">
@@ -104,13 +130,20 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
     )
     if (isError) return <div className="text-red-500 text-center pt-10">Erreur lors du chargement.</div>;
 
-    const handleWatchEpisode = async (id: number, season: number, episode: number) => {
-        await api.media.watchEpisode(id, season, episode);
-        queryClient.invalidateQueries({ queryKey: ['watchlist', mediaType] });
+    // Pas d'attente du serveur : hors ligne, l'action part dans la file et l'affichage est déjà à jour
+    const handleWatchEpisode = (id: number, season: number, episode: number) => {
+        episodeMutation.mutate({ seriesId: id, seasonNumber: season, episodeNumber: episode, action: 'watch' });
     };
 
-    const handleStatusChange = async (id: number, newStatus: UpdateStatusDTO['status_local']) => {
-        await mutation.mutateAsync({ movieId: id, newStatus });
+    const handleStatusChange = (id: number, newStatus: UpdateStatusDTO['status_local']) => {
+        if (newStatus === 'not_tracked') {
+            mediaMutation.mutate({ kind: 'remove', tmdbId: id, mediaType });
+            return;
+        }
+        mediaMutation.mutate({
+            kind: 'status',
+            dto: { tmdb_id: id, media_type: mediaType, status_local: newStatus, is_favorite: false, rewatch_count: 0 },
+        });
     }
 
     return (

@@ -6,6 +6,7 @@ import { useLocalStorage } from '../utils/useLocalStorage';
 import { triggerVibration } from '../utils/haptics';
 import { MediaCard } from './MediaCard';
 import type { MediaCustomResponse } from '../api/mediaApi';
+import { OfflineNotice } from '../offline/OfflineNotice';
 
 // Les listes simples (favoris) renvoient un tableau, les listes paginées (historique) un objet { results }
 type MediaGridPageResult = MediaCustomResponse[] | { results: MediaCustomResponse[]; page: number; has_next_page: boolean };
@@ -38,6 +39,7 @@ export const MediaGridPage: React.FC<MediaGridPageProps> = ({
     const { 
         data, 
         isLoading, 
+        fetchStatus,
         fetchNextPage, 
         hasNextPage, 
         isFetchingNextPage 
@@ -70,6 +72,8 @@ export const MediaGridPage: React.FC<MediaGridPageProps> = ({
         },
         [isFetchingNextPage, hasNextPage, fetchNextPage]
     );
+
+    if (isLoading && fetchStatus === 'paused') return <OfflineNotice what="Cette liste" />;
 
     // Extraction des items : gère les API paginées ({results: []}) ET les API brutes ([...])
     const items = data?.pages.flatMap(page => Array.isArray(page) ? page : (page.results || [])) || [];

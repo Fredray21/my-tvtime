@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, onlineManager } from '@tanstack/react-query';
 import { useApi } from '../context/ApiContext';
 import { triggerVibration } from '../utils/haptics';
 import { useConfirm } from '../hooks/useConfirm';
-import type { TMDBSeasonShort } from '../api/mediaApi';
+import type { EpisodeCustomResponse, MediaCustomResponse, SeasonCustomResponse, TMDBSeasonShort } from '../api/mediaApi';
+import { EPISODE_MUTATION_KEY, type EpisodeMutationVars } from '../offline/mutations';
 import { CheckCircle, ChevronDown, ChevronUp, Trash2, Minus, Plus, Eye } from 'lucide-react';
 
 interface SeasonAccordionProps {
@@ -14,13 +15,14 @@ interface SeasonAccordionProps {
 
 export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, season, defaultOpen }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
-    const [isSeasonMutating, setIsSeasonMutating] = useState(false);
     const api = useApi();
     const queryClient = useQueryClient();
     const { confirm, confirmDialog } = useConfirm();
 
+    const seasonKey = ['tv', seriesId, 'season', season.season_number];
+
     const { data: seasonData, isLoading } = useQuery({
-        queryKey: ['tv', seriesId, 'season', season.season_number],
+        queryKey: seasonKey,
         queryFn: () => api.media.getSeasonDetails(seriesId, season.season_number),
         enabled: isOpen,
     });
@@ -48,57 +50,63 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
         }
     }
 
-    const handleSeasonAction = async (action: 'add' | 'remove' | 'decrement') => {
-        if (isSeasonMutating) return;
-        setIsSeasonMutating(true);
-        triggerVibration([50, 50, 50]);
-        
-        try {
-            if (action === 'add') {
-                await api.media.watchAllEpisodesInSeason(seriesId, season.season_number);
-            } else {
-                let eps = seasonData?.episodes;
-                if (!eps) {
-                    const data = await queryClient.fetchQuery({
-                        queryKey: ['tv', seriesId, 'season', season.season_number],
-                        queryFn: () => api.media.getSeasonDetails(seriesId, season.season_number)
-                    });
-                    eps = data.episodes;
-                }
-                if (eps) {
-                    const promises = eps.map(ep => {
-                        if (action === 'remove') return api.media.removeEpisode(seriesId, season.season_number, ep.episode_number);
-                        return api.media.decrementEpisode(seriesId, season.season_number, ep.episode_number);
-                    });
-                    await Promise.all(promises);
-                }
-            }
-            
-            await queryClient.fetchQuery({
-                queryKey: ['tv', seriesId, 'season', season.season_number],
-                queryFn: () => api.media.getSeasonDetails(seriesId, season.season_number)
-            });
-
-            queryClient.invalidateQueries({ queryKey: ['tv', seriesId] });
-        } catch (err) {
-            console.error("Erreur action saison:", err);
-        } finally {
-            setIsSeasonMutating(false);
-        }
+    // --- AFFICHAGE OPTIMISTE ---
+    // L'action s'affiche tout de suite (même hors ligne) ; le serveur fait foi une fois la synchronisation faite
+    const applyEpisodeAction = (ep: EpisodeCustomResponse, action: EpisodeMutationVars['action']): EpisodeCustomResponse => {
+        if (action === 'remove') return { ...ep, is_watched: false, rewatch_count: 0 };
+        if (action === 'decrement') return { ...ep, rewatch_count: Math.max(0, (ep.rewatch_count || 0) - 1) };
+        return ep.is_watched ? { ...ep, rewatch_count: (ep.rewatch_count || 0) + 1 } : { ...ep, is_watched: true };
     };
 
-    // --- MUTATION INDIVIDUELLE (Épisode) ---
-    const episodeMutation = useMutation({
-        mutationFn: async (variables: { episodeNumber: number; action: 'add' | 'remove' | 'decrement' }) => {
-            if (variables.action === 'remove') return api.media.removeEpisode(seriesId, season.season_number, variables.episodeNumber);
-            if (variables.action === 'decrement') return api.media.decrementEpisode(seriesId, season.season_number, variables.episodeNumber);
-            return api.media.watchEpisode(seriesId, season.season_number, variables.episodeNumber);
+    const updateCacheOptimistically = (vars: EpisodeMutationVars) => {
+        const targets = vars.action === 'watchSeason' ? null : vars.episodeNumber;
+        const action = vars.action === 'watchSeason' ? 'watch' : vars.action;
+
+        const updatedSeason = queryClient.setQueryData<SeasonCustomResponse>(seasonKey, old => old && {
+            ...old,
+            episodes: old.episodes.map(ep => (targets === null || ep.episode_number === targets) ? applyEpisodeAction(ep, action) : ep),
+        });
+
+        // Compteur de la saison sur la fiche série (estimé si les épisodes ne sont pas chargés)
+        const fallbackCount = vars.action === 'watchSeason' ? season.episode_count : vars.action === 'remove' ? Math.max(0, watchedCount - 1) : watchedCount;
+        const newWatchedCount = updatedSeason ? updatedSeason.episodes.filter(ep => ep.is_watched).length : fallbackCount;
+        queryClient.setQueryData<MediaCustomResponse>(['tv', seriesId], old => old?.seasons && {
+            ...old,
+            seasons: old.seasons.map(s => s.season_number === season.season_number ? { ...s, watched_count: newWatchedCount } : s),
+        });
+    };
+
+    // --- MUTATION (épisode ou saison entière) : fonctionne hors ligne ---
+    const episodeMutation = useMutation<unknown, Error, EpisodeMutationVars>({
+        mutationKey: EPISODE_MUTATION_KEY,
+        onMutate: async (vars) => {
+            await queryClient.cancelQueries({ queryKey: seasonKey });
+            updateCacheOptimistically(vars);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['tv', seriesId, 'season', season.season_number] });
-            queryClient.invalidateQueries({ queryKey: ['tv', seriesId] });
-        }
     });
+
+    const mutateEpisode = (episodeNumber: number, action: 'watch' | 'remove' | 'decrement') =>
+        episodeMutation.mutate({ seriesId, seasonNumber: season.season_number, episodeNumber, action });
+
+    const handleSeasonAction = async (action: 'add' | 'remove' | 'decrement') => {
+        triggerVibration([50, 50, 50]);
+
+        if (action === 'add') {
+            episodeMutation.mutate({ seriesId, seasonNumber: season.season_number, action: 'watchSeason' });
+            return;
+        }
+
+        // Retirer / décrémenter : épisode par épisode (il faut donc connaître la liste des épisodes)
+        let episodes = seasonData?.episodes;
+        if (!episodes && onlineManager.isOnline()) {
+            const data = await queryClient.fetchQuery({
+                queryKey: seasonKey,
+                queryFn: () => api.media.getSeasonDetails(seriesId, season.season_number),
+            });
+            episodes = data.episodes;
+        }
+        episodes?.forEach(ep => mutateEpisode(ep.episode_number, action));
+    };
 
     return (
         <div className="mb-3 flex flex-col gap-2">
@@ -124,9 +132,7 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
                         </div>
                         
                         {/* CONTRÔLES DE LA SAISON GLOBALE */}
-                        {isSeasonMutating ? (
-                            <div className="h-8 w-8 rounded-full border-2 border-emerald-500/30 border-t-emerald-500 animate-spin"></div>
-                        ) : seasonTier > 0 ? (
+                        {seasonTier > 0 ? (
                             <div 
                                 className="flex items-center bg-emerald-500/10 border border-emerald-500/30 rounded-lg overflow-hidden h-8"
                                 onClick={(e) => e.stopPropagation()}
@@ -205,7 +211,7 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
                                         {ep.is_watched ? (
                                             <div className="flex items-center bg-emerald-500/10 border border-emerald-500/30 rounded-lg overflow-hidden h-full">
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); triggerVibration(); episodeMutation.mutate({ episodeNumber: ep.episode_number, action: ep.rewatch_count === 0 ? 'remove' : 'decrement' }); }}
+                                                    onClick={(e) => { e.stopPropagation(); triggerVibration(); mutateEpisode(ep.episode_number, ep.rewatch_count === 0 ? 'remove' : 'decrement'); }}
                                                     className="px-2.5 h-full flex items-center justify-center text-emerald-500 hover:bg-emerald-500/20 transition-colors"
                                                 >
                                                     {ep.rewatch_count === 0 ? <Trash2 size={14} /> : <Minus size={14} />}
@@ -214,7 +220,7 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
                                                     x{(ep.rewatch_count || 0) + 1}
                                                 </span>
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); triggerVibration(); episodeMutation.mutate({ episodeNumber: ep.episode_number, action: 'add' }); }}
+                                                    onClick={(e) => { e.stopPropagation(); triggerVibration(); mutateEpisode(ep.episode_number, 'watch'); }}
                                                     className="px-2.5 h-full flex items-center justify-center text-emerald-500 hover:bg-emerald-500/20 transition-colors"
                                                 >
                                                     <Plus size={14} />
@@ -222,7 +228,7 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
                                             </div>
                                         ) : (
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); triggerVibration(30); episodeMutation.mutate({ episodeNumber: ep.episode_number, action: 'add' }); }}
+                                                onClick={(e) => { e.stopPropagation(); triggerVibration(30); mutateEpisode(ep.episode_number, 'watch'); }}
                                                 className="h-full px-3 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5"
                                             >
                                                 <Eye size={14} /> <span className="hidden sm:inline">Vu</span>

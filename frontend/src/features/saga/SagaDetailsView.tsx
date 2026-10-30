@@ -1,10 +1,11 @@
-import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, CheckCircle, Film, Heart, Loader, Star } from 'lucide-react';
+import { CalendarClock, CheckCircle, Film, Heart, Star } from 'lucide-react';
 import { useApi } from '../../context/ApiContext';
 import { triggerVibration } from '../../utils/haptics';
-import type { SagaPart } from '../../api/mediaApi';
+import type { SagaPart, SagaResponse } from '../../api/mediaApi';
+import { MEDIA_MUTATION_KEY, type MediaMutationVars } from '../../offline/mutations';
+import { OfflineNotice } from '../../offline/OfflineNotice';
 
 export const SagaDetailsView = () => {
     const { id } = useParams<{ id: string }>();
@@ -12,33 +13,41 @@ export const SagaDetailsView = () => {
     const api = useApi();
     const queryClient = useQueryClient();
     const sagaId = Number(id);
-    const [pendingId, setPendingId] = useState<number | null>(null);
 
-    const { data: saga, isLoading, isError } = useQuery({
+    const { data: saga, isLoading, isError, fetchStatus } = useQuery({
         queryKey: ['saga', sagaId],
         queryFn: () => api.media.getSaga(sagaId),
         enabled: !isNaN(sagaId),
     });
 
-    const watchMutation = useMutation({
-        mutationFn: (movieId: number) => api.media.updateStatus({
-            tmdb_id: movieId,
-            media_type: 'movie',
-            status_local: 'watched',
-            is_favorite: false,
-            rewatch_count: 0,
-        }),
-        onMutate: (movieId) => setPendingId(movieId),
-        onSettled: (_, __, movieId) => {
-            setPendingId(null);
-            queryClient.invalidateQueries({ queryKey: ['saga'] });
-            queryClient.invalidateQueries({ queryKey: ['sagas'] });
-            queryClient.invalidateQueries({ queryKey: ['movie', 'movie', movieId] });
-            queryClient.invalidateQueries({ queryKey: ['watchlist'] });
-            queryClient.invalidateQueries({ queryKey: ['userStats'] });
+    // Marquer un film vu : affichage immédiat (progression recalculée), mis en file d'attente si hors ligne
+    const watchMutation = useMutation<unknown, Error, MediaMutationVars>({
+        mutationKey: MEDIA_MUTATION_KEY,
+        onMutate: async (vars) => {
+            if (vars.kind !== 'status') return;
+            await queryClient.cancelQueries({ queryKey: ['saga', sagaId] });
+            queryClient.setQueryData<SagaResponse>(['saga', sagaId], old => {
+                if (!old) return old;
+                const parts = old.parts.map(part => part.id === vars.dto.tmdb_id ? { ...part, status_local: 'watched' as const } : part);
+                const released = parts.filter(part => part.is_released);
+                const watchedCount = released.filter(part => part.status_local === 'watched').length;
+                return {
+                    ...old,
+                    parts,
+                    watched_count: watchedCount,
+                    is_complete: released.length > 0 && watchedCount === released.length,
+                    next_movie: released.find(part => part.status_local !== 'watched') ?? null,
+                };
+            });
         },
     });
 
+    const markWatched = (movieId: number) => watchMutation.mutate({
+        kind: 'status',
+        dto: { tmdb_id: movieId, media_type: 'movie', status_local: 'watched', is_favorite: false, rewatch_count: 0 },
+    });
+
+    if (isLoading && fetchStatus === 'paused') return <OfflineNotice what="Cette saga" />;
     if (isLoading) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500 animate-pulse">Chargement de la saga...</div>;
     if (isError || !saga) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-red-500">Erreur lors du chargement.</div>;
 
@@ -91,15 +100,14 @@ export const SagaDetailsView = () => {
                     <span className="flex-shrink-0 px-2 py-1 rounded-md text-[10px] font-bold border bg-emerald-500/20 text-emerald-400 border-emerald-500/20">Vu</span>
                 ) : part.is_released ? (
                     <button
-                        disabled={watchMutation.isPending}
                         onClick={() => {
                             triggerVibration([20, 80, 20]);
-                            watchMutation.mutate(part.id);
+                            markWatched(part.id);
                         }}
                         title="Marquer comme vu"
                         className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-zinc-800/80 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-500 rounded-full transition-all border border-zinc-700/50 disabled:opacity-50"
                     >
-                        {pendingId === part.id ? <Loader size={18} className="animate-spin" /> : <CheckCircle size={20} strokeWidth={2.5} />}
+                        <CheckCircle size={20} strokeWidth={2.5} />
                     </button>
                 ) : (
                     <span className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold bg-purple-500/20 text-purple-300">

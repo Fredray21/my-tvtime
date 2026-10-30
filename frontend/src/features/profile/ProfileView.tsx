@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { useQueries } from '@tanstack/react-query';
-import { Clock, Heart, Layers, Settings, Sparkles } from 'lucide-react';
+import { Clapperboard, Clock, Heart, Layers, Settings, Sparkles, Tv } from 'lucide-react';
 import { useApi } from '../../context/ApiContext';
 import { formatRuntime } from '../../utils/timeFormat';
 import { LatestSection } from '../../components/LatestSection';
@@ -63,11 +63,10 @@ export const ProfileView = () => {
         );
     }
 
-    const totalMinutes = stats ? stats.movies.total_runtime_minutes + stats.tv.total_runtime_minutes : 0;
+    // Films et séries séparés : le nombre vu et le temps passé de chaque côté
     const statTiles = [
-        { label: 'Films', value: stats?.movies.total_watched },
-        { label: 'Épisodes', value: stats?.tv.total_episodes_watched },
-        { label: 'Visionnage', value: stats ? formatRuntime(totalMinutes).split(' ').slice(0, 2).join(' ') : undefined },
+        { label: 'Films vus', icon: Clapperboard, count: stats?.movies.total_watched, minutes: stats?.movies.total_runtime_minutes },
+        { label: 'Épisodes vus', icon: Tv, count: stats?.tv.total_episodes_watched, minutes: stats?.tv.total_runtime_minutes },
     ];
 
     // Une section n'apparaît que si elle a du contenu (ou pendant le chargement)
@@ -99,16 +98,22 @@ export const ProfileView = () => {
                     </Link>
                 </div>
 
-                {/* STATS EN UNE LIGNE */}
-                <div className="grid grid-cols-3 gap-2 mb-3">
+                {/* STATS : films et séries côte à côte, chacun avec son temps de visionnage */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
                     {statTiles.map(tile => (
-                        <div key={tile.label} className="bg-zinc-900/80 border border-zinc-800 rounded-xl py-3 px-2 text-center">
-                            {tile.value === undefined ? (
-                                <div className="h-6 w-12 mx-auto bg-zinc-800 rounded animate-pulse" />
-                            ) : (
-                                <p className="text-xl font-black text-zinc-100 leading-tight">{tile.value}</p>
-                            )}
-                            <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-1 font-medium">{tile.label}</p>
+                        <div key={tile.label} className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-3 flex items-center gap-3">
+                            <tile.icon size={20} className="text-zinc-500 flex-shrink-0" />
+                            <div className="min-w-0">
+                                {tile.count === undefined ? (
+                                    <div className="h-6 w-12 bg-zinc-800 rounded animate-pulse" />
+                                ) : (
+                                    <p className="text-xl font-black text-zinc-100 leading-tight">{tile.count}</p>
+                                )}
+                                <p className="text-[10px] text-zinc-500 uppercase tracking-wide font-medium">{tile.label}</p>
+                                {tile.minutes !== undefined && (
+                                    <p className="text-[11px] font-bold text-purple-400 mt-1 leading-tight">{formatRuntime(tile.minutes)}</p>
+                                )}
+                            </div>
                         </div>
                     ))}
                 </div>

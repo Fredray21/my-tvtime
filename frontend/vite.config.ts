@@ -9,8 +9,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate', // Automatically updates the app when a new version is deployed
+      injectRegister: false, // Enregistrement fait dans src/pwa.ts (vérification au retour au premier plan + rechargement auto)
       workbox: {
         importScripts: ['push-sw.js'], // Réception et affichage des notifications push (public/push-sw.js)
+        clientsClaim: true, // la nouvelle version prend la main tout de suite
+        skipWaiting: true,
       },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {

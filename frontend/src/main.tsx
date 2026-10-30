@@ -5,12 +5,15 @@ import { ClerkProvider } from '@clerk/clerk-react';
 import { dark } from '@clerk/themes';
 import './index.css';
 import { ApiProvider } from './context/ApiContext';
+import { setupPwaUpdates } from './pwa';
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!PUBLISHABLE_KEY) {
   throw new Error("Missing Publishable Key");
 }
+
+setupPwaUpdates();
 
 const root = createRoot(document.getElementById('root')!);
 root.render(

@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { useApi } from '../../context/ApiContext';
 import { useCallback, useRef } from 'react';
 import { MediaCard } from '../../components/MediaCard';
+import type { UpdateStatusDTO } from '../../api/mediaApi';
 import { UpcomingCalendar } from '../../components/UpcomingCalendar';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 import { triggerVibration } from '../../utils/haptics';
@@ -62,14 +63,14 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
     );
 
     const mutation = useMutation({
-        mutationFn: async (variables: { movieId: number; newStatus: string }) => {
+        mutationFn: async (variables: { movieId: number; newStatus: UpdateStatusDTO['status_local'] }) => {
             if (variables.newStatus === 'not_tracked') {
                 return api.media.removeMedia(variables.movieId, mediaType);
             }
             return api.media.updateStatus({
                 tmdb_id: variables.movieId,
                 media_type: mediaType,
-                status_local: variables.newStatus as any,
+                status_local: variables.newStatus,
                 is_favorite: false,
                 rewatch_count: 0,
             });
@@ -108,7 +109,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         queryClient.invalidateQueries({ queryKey: ['watchlist', mediaType] });
     };
 
-    const handleStatusChange = async (id: number, newStatus: string) => {
+    const handleStatusChange = async (id: number, newStatus: UpdateStatusDTO['status_local']) => {
         await mutation.mutateAsync({ movieId: id, newStatus });
     }
 

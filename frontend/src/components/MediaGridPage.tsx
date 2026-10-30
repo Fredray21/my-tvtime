@@ -1,18 +1,22 @@
 import React, { useCallback, useRef } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, type QueryKey } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, List, Grid } from 'lucide-react';
 import { useLocalStorage } from '../utils/useLocalStorage';
 import { triggerVibration } from '../utils/haptics';
 import { MediaCard } from './MediaCard';
+import type { MediaCustomResponse } from '../api/mediaApi';
+
+// Les listes simples (favoris) renvoient un tableau, les listes paginées (historique) un objet { results }
+type MediaGridPageResult = MediaCustomResponse[] | { results: MediaCustomResponse[]; page: number; has_next_page: boolean };
 
 interface MediaGridPageProps {
     title: string;
     icon: React.ElementType;
     mediaType: 'movie' | 'tv';
-    queryKey: any[];
+    queryKey: QueryKey;
     // Le queryFn doit accepter pageParam pour l'infinite scroll
-    queryFn: ({ pageParam }: { pageParam: number }) => Promise<any>;
+    queryFn: ({ pageParam }: { pageParam: number }) => Promise<MediaGridPageResult>;
     emptyTitle: string;
     emptyDescription: string;
 }
@@ -125,9 +129,9 @@ export const MediaGridPage: React.FC<MediaGridPageProps> = ({
                 {/* LISTE / GRILLE DES MÉDIAS */}
                 {!isLoading && items.length > 0 && (
                     <div className={viewMode === 'card' ? "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 sm:gap-4" : "flex flex-col gap-3"}>
-                        {items.map((item: any) => (
+                        {items.map((item) => (
                             <MediaCard
-                                key={item.id || item.tmdb_id || item.tmdb_series_id || item.tmdb_movie_id}
+                                key={item.id}
                                 item={item}
                                 fallbackMediaType={mediaType}
                                 layout={viewMode}

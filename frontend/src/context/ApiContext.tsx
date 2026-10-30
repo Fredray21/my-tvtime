@@ -51,6 +51,7 @@ export const ApiProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- le hook vit avec son contexte, comme tout contexte React
 export const useApi = () => {
     const context = useContext(ApiContext);
     if (!context) {

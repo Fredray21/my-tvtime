@@ -3,33 +3,37 @@ import { Link } from 'react-router-dom';
 import { Star, Heart, CheckCircle, Eye, CalendarClock, Loader } from 'lucide-react';
 import { triggerVibration } from '../utils/haptics';
 
+// Ce qu'une carte sait afficher : films / séries (watchlist, recherche, favoris...) et personnes (recherche)
+export interface MediaCardItem {
+    id?: number;
+    tmdb_id?: number;
+    title?: string;
+    name?: string;
+    poster_path?: string | null;
+    profile_path?: string | null;
+    release_date?: string;
+    first_air_date?: string;
+    media_type?: 'movie' | 'tv' | 'person';
+    vote_average?: number;
+    is_favorite?: boolean;
+    status_local?: string;
+    next_season_number?: number;
+    next_episode_number?: number;
+    next_episode_to_air?: { air_date?: string } | null;
+}
+
 interface MediaCardProps {
-    item: any;
+    item: MediaCardItem;
     fallbackMediaType?: 'movie' | 'tv' | 'person';
     layout?: 'card' | 'list';
-    isUpcoming?: boolean;
     onStatusChange?: (mediaId: number, newStatus: 'watchlist' | 'watched') => Promise<void> | void;
     onWatchEpisode?: (id: number, season: number, episode: number) => Promise<void> | void;
 }
-
-type TMDBSeason = {
-    air_date: string;
-    episode_count: number;
-    id: number;
-    name: string;
-    overview: string;
-    poster_path: string;
-    season_number: number;
-    vote_average: number;
-    watched_count: number;
-    max_episode_watched?: number
-};
 
 export const MediaCard: React.FC<MediaCardProps> = ({
     item,
     fallbackMediaType = 'movie',
     layout = 'card',
-    isUpcoming = false,
     onStatusChange,
     onWatchEpisode
 }) => {
@@ -42,9 +46,10 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     const rawDate = item.release_date || item.first_air_date;
     const year = rawDate ? new Date(rawDate).getFullYear() : null;
 
+    const itemId = item.id ?? item.tmdb_id ?? 0;
     const mediaType = item.media_type || fallbackMediaType;
     const isPerson = mediaType === 'person';
-    const targetUrl = `/${mediaType}/${item.id || item.tmdb_id}`;
+    const targetUrl = `/${mediaType}/${itemId}`;
 
     const getDaysLeft = () => {
         const targetDateStr = item.next_episode_to_air?.air_date || item.release_date;
@@ -68,43 +73,8 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
     const [isProcessing, setIsProcessing] = useState(false);
 
-    let nextSeason = item.next_season_number;
-    let nextEpisode = item.next_episode_number;
-
-    if (isUpcoming && item.next_episode_to_air) {
-        // 1. Par défaut, on cible l'épisode qui va sortir
-        nextSeason = item.next_episode_to_air.season_number;
-        nextEpisode = item.next_episode_to_air.episode_number;
-
-        // 2. On cherche les infos de cette saison spécifique
-        const upcomingSeasonData = item.seasons?.find((s: TMDBSeason) => s.season_number === nextSeason);
-
-        if (upcomingSeasonData) {
-            // On récupère le numéro le plus élevé (avec un fallback sur watched_count au cas où)
-            const highestWatched = upcomingSeasonData.max_episode_watched || upcomingSeasonData.watched_count || 0;
-
-            // 3. L'utilisateur a déjà vu cet épisode (ou plus)
-            if (highestWatched >= nextEpisode) {
-                // Le prochain est strictement celui APRÈS le plus grand numéro vu
-                nextEpisode = highestWatched + 1;
-
-                // 4. On dépasse la fin de cette saison
-                if (nextEpisode > upcomingSeasonData.episode_count) {
-
-                    // On vérifie si la saison SUIVANTE existe vraiment
-                    const hasNextSeason = item.seasons?.some((s: TMDBSeason) => s.season_number === nextSeason + 1);
-
-                    if (hasNextSeason) {
-                        nextSeason += 1;
-                        nextEpisode = 1;
-                    } else {
-                        // Aucune saison suivante : on met à 0 pour cacher l'affichage et désactiver le clic
-                        nextEpisode = 0;
-                    }
-                }
-            }
-        }
-    }
+    const nextSeason = item.next_season_number ?? 0;
+    const nextEpisode = item.next_episode_number ?? 0;
 
     const handleAction = async () => {
         if (isProcessing) return;
@@ -112,9 +82,9 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
         try {
             if (mediaType === 'tv' && nextEpisode > 0 && onWatchEpisode) {
-                await onWatchEpisode(item.id, nextSeason, nextEpisode);
+                await onWatchEpisode(itemId, nextSeason, nextEpisode);
             } else if (onStatusChange) {
-                await onStatusChange(item.id || item.tmdb_id, 'watched');
+                await onStatusChange(itemId, 'watched');
             }
         } catch (error) {
             console.error("Erreur lors de l'action :", error);
@@ -212,7 +182,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                         </div>
                     </div>
 
-                    {!isPerson && item.vote_average > 0 && (
+                    {!isPerson && !!item.vote_average && item.vote_average > 0 && (
                         <div className="text-amber-400 text-sm font-bold flex items-center gap-1 mt-1">
                             <Star fill="currentColor" size={12} /> {item.vote_average.toFixed(1)}
                         </div>
@@ -289,7 +259,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                     loading="lazy"
                 />
 
-                {!isPerson && item.vote_average > 0 && (
+                {!isPerson && !!item.vote_average && item.vote_average > 0 && (
                     <div className="absolute top-2 left-2 flex items-center gap-1 bg-zinc-950/80 text-amber-400 font-bold px-1.5 py-0.5 rounded text-[10px] backdrop-blur-sm border border-zinc-800">
                         <Star fill="currentColor" size={10} /> {item.vote_average.toFixed(1)}
                     </div>
@@ -312,11 +282,6 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
             <div className="p-2.5 pb-1 flex flex-col justify-between flex-grow gap-1">
                 <h3 className="font-medium text-xs text-zinc-200 line-clamp-1 group-hover:text-white">{title}</h3>
-                {item.episodes && (
-                    <div className="text-[10px] text-zinc-400 font-medium line-clamp-1">
-                        S{item.seasons[0]}E{item.episodes.join(', ')}
-                    </div>
-                )}
                 {year && <p className="text-[10px] text-zinc-500 font-medium">{year}</p>}
             </div>
         </div>
@@ -333,7 +298,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                             e.preventDefault();
                             e.stopPropagation();
                             triggerVibration(item.status_local === 'watchlist' ? [50, 80, 20] : [20, 80, 20]);
-                            onStatusChange(item.id || item.tmdb_id, item.status_local === 'watchlist' ? 'watched' : 'watchlist')
+                            onStatusChange(itemId, item.status_local === 'watchlist' ? 'watched' : 'watchlist')
                         }}
                         className={`w-full py-1.5 rounded-lg text-[10px] font-bold tracking-wide transition-all duration-200 flex items-center justify-center gap-1.5 ${item.status_local === 'watchlist'
                             ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'

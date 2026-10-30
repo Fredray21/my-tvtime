@@ -36,7 +36,8 @@ export const SearchView = () => {
         isLoading: isPagedLoading,
     } = useInfiniteQuery({
         queryKey: ['search-paged', activeTab, debouncedQuery],
-        queryFn: ({ pageParam = 1 }) => api.search.searchPaged(activeTab as any, debouncedQuery, pageParam),
+        // 'all' n'arrive jamais ici : la requête est désactivée sur cet onglet (enabled)
+        queryFn: ({ pageParam = 1 }) => api.search.searchPaged(activeTab as Exclude<TabType, 'all'>, debouncedQuery, pageParam),
         initialPageParam: 1,
         getNextPageParam: (lastPage) => lastPage.page < lastPage.total_pages ? lastPage.page + 1 : undefined,
         enabled: debouncedQuery.length > 1 && activeTab !== 'all',

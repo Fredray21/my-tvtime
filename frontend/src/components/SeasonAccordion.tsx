@@ -3,11 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../context/ApiContext';
 import { triggerVibration } from '../utils/haptics';
 import { useConfirm } from '../hooks/useConfirm';
+import type { TMDBSeasonShort } from '../api/mediaApi';
 import { CheckCircle, ChevronDown, ChevronUp, Trash2, Minus, Plus, Eye } from 'lucide-react';
 
 interface SeasonAccordionProps {
     seriesId: number;
-    season: any;
+    season: TMDBSeasonShort & { min_rewatch_count?: number };
     defaultOpen: boolean;
 }
 
@@ -26,7 +27,7 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
 
     // 1. Calcul des épisodes vus
     const watchedCount = seasonData 
-        ? seasonData.episodes.filter((ep: any) => ep.is_watched).length 
+        ? seasonData.episodes.filter(ep => ep.is_watched).length 
         : (season.watched_count || 0);
         
     const totalCount = season.episode_count;
@@ -36,9 +37,9 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
     let seasonTier = 0;
     if (seasonData?.episodes && seasonData.episodes.length > 0) {
         // Calcul en direct si l'accordéon est ouvert
-        const allWatched = seasonData.episodes.every((ep: any) => ep.is_watched);
+        const allWatched = seasonData.episodes.every(ep => ep.is_watched);
         if (allWatched) {
-            seasonTier = Math.min(...seasonData.episodes.map((ep: any) => (ep.rewatch_count || 0) + 1));
+            seasonTier = Math.min(...seasonData.episodes.map(ep => (ep.rewatch_count || 0) + 1));
         }
     } else {
         // Utilisation de la propriété de l'API (min_rewatch_count) quand l'accordéon est fermé
@@ -65,7 +66,7 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
                     eps = data.episodes;
                 }
                 if (eps) {
-                    const promises = eps.map((ep: any) => {
+                    const promises = eps.map(ep => {
                         if (action === 'remove') return api.media.removeEpisode(seriesId, season.season_number, ep.episode_number);
                         return api.media.decrementEpisode(seriesId, season.season_number, ep.episode_number);
                     });
@@ -179,7 +180,7 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
                     {isLoading ? (
                         <div className="text-center py-4 text-zinc-500 animate-pulse text-sm">Chargement des épisodes...</div>
                     ) : seasonData?.episodes ? (
-                        seasonData.episodes.map((ep: any) => {
+                        seasonData.episodes.map(ep => {
                             const stillUrl = ep.still_path
                                 ? `https://image.tmdb.org/t/p/w300${ep.still_path}`
                                 : 'https://dummyimage.com/300x170/27272a/71717a?text=Pas+d%27image';

@@ -6,7 +6,7 @@ import { MediaCard } from '../../components/MediaCard';
 import { triggerVibration } from '../../utils/haptics';
 import { CheckCircle } from 'lucide-react';
 import { SeasonAccordion } from '../../components/SeasonAccordion';
-import type { UpdateStatusDTO } from '../../api/mediaApi';
+import type { MediaCustomResponse, UpdateStatusDTO } from '../../api/mediaApi';
 import { MediaTrailers } from '../../components/MediaTrailers';
 import { WatchProviders } from '../../components/WatchProviders';
 import { useConfirm } from '../../hooks/useConfirm';
@@ -62,7 +62,7 @@ export const TVDetailsView = () => {
             await queryClient.cancelQueries({ queryKey: ['tv', seriesId] });
             const previousSeries = queryClient.getQueryData(['tv', seriesId]);
 
-            queryClient.setQueryData(['tv', seriesId], (old: any) => {
+            queryClient.setQueryData<MediaCustomResponse>(['tv', seriesId], (old) => {
                 if (!old) return old;
 
                 let updatedSeasons = old.seasons;
@@ -70,7 +70,7 @@ export const TVDetailsView = () => {
                 // Si l'utilisateur clique sur "Ne plus suivre"
                 if (variables.newStatus === 'not_tracked' && old.seasons) {
                     // 1. On remet tous les compteurs de saisons à 0 instantanément
-                    updatedSeasons = old.seasons.map((s: any) => ({ ...s, watched_count: 0 }));
+                    updatedSeasons = old.seasons.map(s => ({ ...s, watched_count: 0 }));
 
                     // 2. On vide le cache précis des épisodes pour forcer un rechargement si on ré-ouvre l'accordéon
                     queryClient.removeQueries({ queryKey: ['tv', seriesId, 'season'] });
@@ -249,7 +249,7 @@ export const TVDetailsView = () => {
                         </div>
                     ) : credits?.cast && credits.cast.length > 0 ? (
                         <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-none snap-x">
-                            {credits.cast.slice(0, 15).map((actor: any) => (
+                            {credits.cast.slice(0, 15).map((actor) => (
                                 <Link to={`/person/${actor.id}`} key={actor.id} className="w-24 flex-shrink-0 snap-start group">
                                     <div className="w-24 aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800/40 relative shadow-sm">
                                         <img

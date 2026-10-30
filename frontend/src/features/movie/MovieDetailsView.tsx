@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../../context/ApiContext';
 import { MediaCard } from '../../components/MediaCard';
 import { triggerVibration } from '../../utils/haptics';
-import type { UpdateStatusDTO } from '../../api/mediaApi';
+import type { MediaCustomResponse, UpdateStatusDTO } from '../../api/mediaApi';
 import { MediaTrailers } from '../../components/MediaTrailers';
 import { WatchProviders } from '../../components/WatchProviders';
 import { SagaProgress } from '../../components/SagaProgress';
@@ -60,7 +60,7 @@ export const MovieDetailsView = () => {
             await queryClient.cancelQueries({ queryKey: ['movie', mediaType, movieId] });
             const previousMovie = queryClient.getQueryData(['movie', mediaType, movieId]);
 
-            queryClient.setQueryData(['movie', mediaType, movieId], (old: any) => {
+            queryClient.setQueryData<MediaCustomResponse>(['movie', mediaType, movieId], (old) => {
                 if (!old) return old;
 
                 const isFirstWatch = old.status_local !== 'watched' && variables.newStatus === 'watched';
@@ -368,7 +368,7 @@ export const MovieDetailsView = () => {
                         </div>
                     ) : credits?.cast && credits.cast.length > 0 ? (
                         <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-none snap-x">
-                            {credits.cast.slice(0, 15).map((actor: any) => (
+                            {credits.cast.slice(0, 15).map((actor) => (
                                 <Link to={`/person/${actor.id}`} key={actor.id} className="w-24 flex-shrink-0 snap-start group">
                                     <div className="w-24 aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800/40 relative shadow-sm">
                                         <img

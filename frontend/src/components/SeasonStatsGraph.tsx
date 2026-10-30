@@ -12,15 +12,27 @@ import {
     ReferenceLine
 } from 'recharts';
 import { triggerVibration } from '../utils/haptics';
+import type { TMDBSeasonShort } from '../api/mediaApi';
 
 interface SeasonStatsGraphProps {
     seriesId: number;
-    seasons: any[];
+    seasons: TMDBSeasonShort[];
 }
 
-const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-        const data = payload[0].payload;
+interface ChartPoint {
+    episode: number;
+    name: string;
+    rating: number;
+}
+
+interface ChartTooltipProps {
+    active?: boolean;
+    payload?: ReadonlyArray<{ payload?: ChartPoint }>;
+}
+
+const CustomTooltip = ({ active, payload }: ChartTooltipProps) => {
+    const data = payload?.[0]?.payload;
+    if (active && data) {
         return (
             <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-xl shadow-xl z-50 transform -translate-y-[130%] transition-opacity min-w-[200px] max-w-[240px]">
                 <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">
@@ -59,8 +71,6 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
         staleTime: Infinity,
     });
 
-    if (validSeasons.length === 0) return null;
-
     const handlePrev = () => {
         triggerVibration(10);
         setCurrentIndex(prev => (prev > 0 ? prev - 1 : validSeasons.length - 1));
@@ -85,6 +95,9 @@ export const SeasonStatsGraph: React.FC<SeasonStatsGraphProps> = ({ seriesId, se
     const averageSeasonRating = chartData.length > 0
         ? chartData.reduce((acc, curr) => acc + curr.rating, 0) / chartData.length
         : 0;
+
+    // Après tous les hooks : un composant ne doit jamais appeler un nombre variable de hooks
+    if (validSeasons.length === 0) return null;
 
     return (
         <div className="mb-12 border-t border-zinc-800/50 pt-8">

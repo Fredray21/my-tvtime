@@ -1,6 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { isAxiosError } from 'axios';
 import { useApi } from '../context/ApiContext';
 import { Upload, Loader2, CheckCircle2, AlertTriangle, Film, Tv, ArrowRight } from 'lucide-react';
+
+// Message d'erreur renvoyé par l'API ({ error: "..." }), sinon le message par défaut
+const apiErrorMessage = (err: unknown, fallback: string) =>
+    (isAxiosError<{ error?: string }>(err) && err.response?.data?.error) || fallback;
 
 // --- Types adaptés ---
 interface WatchedEpisode {
@@ -101,8 +106,8 @@ export const TVTimeImport: React.FC = () => {
         try {
             const data = await api.user.analyzeTVTime(file);
             startPolling(data.task_id);
-        } catch (err: any) {
-            setError(err.response?.data?.error || "Une erreur est survenue lors de l'upload.");
+        } catch (err) {
+            setError(apiErrorMessage(err, "Une erreur est survenue lors de l'upload."));
             setStep('idle');
         }
     };
@@ -125,9 +130,9 @@ export const TVTimeImport: React.FC = () => {
                     setError(status.error || "L'analyse a échoué.");
                     setStep('idle');
                 }
-            } catch (err: any) {
+            } catch (err) {
                 if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-                setError(err.response?.data?.error || "Erreur de suivi de l'importation.");
+                setError(apiErrorMessage(err, "Erreur de suivi de l'importation."));
                 setStep('idle');
             }
         }, 1000);
@@ -153,8 +158,8 @@ export const TVTimeImport: React.FC = () => {
             } else {
                 throw new Error("Aucun ID de tâche retourné par le serveur.");
             }
-        } catch (err: any) {
-            setError(err.response?.data?.error || "Erreur au démarrage de la sauvegarde.");
+        } catch (err) {
+            setError(apiErrorMessage(err, "Erreur au démarrage de la sauvegarde."));
             setStep('summary');
             setIsSaving(false);
         }
@@ -183,9 +188,9 @@ export const TVTimeImport: React.FC = () => {
                     setStep('summary');
                     setIsSaving(false);
                 }
-            } catch (err: any) {
+            } catch (err) {
                 if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-                setError(err.response?.data?.error || "Erreur de connexion pendant le suivi de l'écriture.");
+                setError(apiErrorMessage(err, "Erreur de connexion pendant le suivi de l'écriture."));
                 setStep('summary');
                 setIsSaving(false);
             }

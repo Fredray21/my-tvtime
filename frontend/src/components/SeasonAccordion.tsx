@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../context/ApiContext';
 import { triggerVibration } from '../utils/haptics';
+import { useConfirm } from '../hooks/useConfirm';
 import { CheckCircle, ChevronDown, ChevronUp, Trash2, Minus, Plus, Eye } from 'lucide-react';
 
 interface SeasonAccordionProps {
@@ -15,6 +16,7 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
     const [isSeasonMutating, setIsSeasonMutating] = useState(false);
     const api = useApi();
     const queryClient = useQueryClient();
+    const { confirm, confirmDialog } = useConfirm();
 
     const { data: seasonData, isLoading } = useQuery({
         queryKey: ['tv', seriesId, 'season', season.season_number],
@@ -99,6 +101,7 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
 
     return (
         <div className="mb-3 flex flex-col gap-2">
+            {confirmDialog}
             {/* HEADER DE LA SAISON */}
             <div 
                 onClick={() => { triggerVibration(10); setIsOpen(!isOpen); }}
@@ -128,7 +131,18 @@ export const SeasonAccordion: React.FC<SeasonAccordionProps> = ({ seriesId, seas
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <button 
-                                    onClick={() => handleSeasonAction(seasonTier === 1 ? 'remove' : 'decrement')}
+                                    onClick={async () => {
+                                        // Retirer toute la saison de l'historique : confirmation (le -1 sur un revisionnage reste direct)
+                                        if (seasonTier === 1) {
+                                            const confirmed = await confirm({
+                                                title: `Décocher toute la saison ${season.season_number} ?`,
+                                                message: "Tous les épisodes de cette saison seront retirés de ton historique.",
+                                                confirmLabel: 'Décocher',
+                                            });
+                                            if (!confirmed) return;
+                                        }
+                                        handleSeasonAction(seasonTier === 1 ? 'remove' : 'decrement');
+                                    }}
                                     className="px-2.5 h-full text-emerald-500 hover:bg-emerald-500/20 transition-colors"
                                 >
                                     {seasonTier === 1 ? <Trash2 size={14} /> : <Minus size={14} />}

@@ -92,7 +92,7 @@ export const WrappedView = () => {
     const selectYear = (year: number) => {
         triggerVibration();
         // replace : changer d'année ne doit pas empiler l'historique (le bouton retour ramène direct au profil)
-        setSearchParams({ year: String(year) }, { replace: true });
+        setSearchParams({ year: String(year) }, { replace: true, preventScrollReset: true });
     };
 
     return (

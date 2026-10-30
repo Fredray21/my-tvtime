@@ -7,12 +7,14 @@ import type { UpdateStatusDTO } from '../../api/mediaApi';
 import { MediaTrailers } from '../../components/MediaTrailers';
 import { WatchProviders } from '../../components/WatchProviders';
 import { SagaProgress } from '../../components/SagaProgress';
+import { useConfirm } from '../../hooks/useConfirm';
 
 export const MovieDetailsView = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const api = useApi();
     const queryClient = useQueryClient();
+    const { confirm, confirmDialog } = useConfirm();
 
     const movieId = Number(id);
     const mediaType = 'movie';
@@ -108,6 +110,7 @@ export const MovieDetailsView = () => {
 
     return (
         <div className="min-h-screen bg-zinc-950 text-white pb-24">
+            {confirmDialog}
             {/* HEADER: Image de fond + Bouton retour */}
             <div className="relative w-full aspect-video sm:aspect-[21/9] bg-zinc-900">
                 {backdropUrl && (
@@ -174,9 +177,18 @@ export const MovieDetailsView = () => {
                         <>
                             {/* Bouton État : Déjà vu (Clic pour passer en not_tracked) */}
                             <button
-                                onClick={() => {
-                                    triggerVibration([50, 80, 20]);
-                                    mutation.mutate({ newStatus: 'not_tracked', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
+                                onClick={async () => {
+                                    triggerVibration([20]);
+                                    const confirmed = await confirm({
+                                        title: 'Retirer ce film de tes films vus ?',
+                                        message: <>
+                                            Ton historique sur <span className="text-white font-semibold">{movie.title}</span> sera supprimé
+                                            {movie.rewatch_count > 0 && ` (${movie.rewatch_count + 1} visionnages)`}
+                                            {movie.is_favorite && ', ainsi que ton coup de cœur'}.
+                                        </>,
+                                        confirmLabel: 'Retirer',
+                                    });
+                                    if (confirmed) mutation.mutate({ newStatus: 'not_tracked', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
                                 }}
                                 className="flex-[2] py-3 rounded-xl font-bold text-sm bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/30 transition-all"
                             >
@@ -226,8 +238,17 @@ export const MovieDetailsView = () => {
                         <>
                             {/* Mode standard : pas encore vu */}
                             <button
-                                onClick={() => {
+                                onClick={async () => {
                                     const newStatus = movie.status_local === 'watchlist' ? 'not_tracked' : 'watchlist'
+
+                                    if (newStatus === 'not_tracked') {
+                                        const confirmed = await confirm({
+                                            title: 'Retirer de ta watchlist ?',
+                                            message: <><span className="text-white font-semibold">{movie.title}</span> ne sera plus dans tes films à voir.</>,
+                                            confirmLabel: 'Retirer',
+                                        });
+                                        if (!confirmed) return;
+                                    }
 
                                     if (newStatus === 'watchlist') {
                                         triggerVibration([20, 80, 50]);

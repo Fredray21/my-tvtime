@@ -9,6 +9,7 @@ import { SeasonAccordion } from '../../components/SeasonAccordion';
 import type { UpdateStatusDTO } from '../../api/mediaApi';
 import { MediaTrailers } from '../../components/MediaTrailers';
 import { WatchProviders } from '../../components/WatchProviders';
+import { useConfirm } from '../../hooks/useConfirm';
 import { SeasonStatsGraph } from '../../components/SeasonStatsGraph';
 
 export const TVDetailsView = () => {
@@ -16,6 +17,7 @@ export const TVDetailsView = () => {
     const navigate = useNavigate();
     const api = useApi();
     const queryClient = useQueryClient();
+    const { confirm, confirmDialog } = useConfirm();
 
     const seriesId = Number(id);
     const mediaType = 'tv';
@@ -128,6 +130,7 @@ export const TVDetailsView = () => {
 
     return (
         <div className="min-h-screen bg-zinc-950 text-white pb-24">
+            {confirmDialog}
             {/* HEADER BACKGROUND IMAGE */}
             <div className="relative w-full aspect-video sm:aspect-[21/9] bg-zinc-900">
                 {backdropUrl && <img src={backdropUrl} alt={series.name} className="w-full h-full object-cover" />}
@@ -160,9 +163,25 @@ export const TVDetailsView = () => {
 
                 <div className="mb-8">
                     <button
-                        onClick={() => {
+                        onClick={async () => {
                             const isTracked = series.status_local && series.status_local !== 'not_tracked';
-                            triggerVibration(isTracked ? [50, 80, 20] : [20, 80, 50]);
+                            if (isTracked) {
+                                // Ne plus suivre supprime la série ET tous ses épisodes vus : on demande confirmation
+                                triggerVibration([20]);
+                                const watchedEpisodes = (series.seasons ?? []).reduce((total, s) => total + (s.watched_count || 0), 0);
+                                const confirmed = await confirm({
+                                    title: 'Ne plus suivre cette série ?',
+                                    message: <>
+                                        <span className="text-white font-semibold">{series.name}</span> sera retirée de tes séries
+                                        {watchedEpisodes > 0 && <>, avec ton historique de <span className="text-white font-semibold">{watchedEpisodes} épisode{watchedEpisodes > 1 ? 's' : ''} vu{watchedEpisodes > 1 ? 's' : ''}</span></>}
+                                        {series.is_favorite && ' et ton coup de cœur'}. Cette action est définitive.
+                                    </>,
+                                    confirmLabel: 'Ne plus suivre',
+                                });
+                                if (!confirmed) return;
+                            } else {
+                                triggerVibration([20, 80, 50]);
+                            }
                             globalMutation.mutate({ newStatus: isTracked ? 'not_tracked' : 'watching', isFavorite: series.is_favorite });
                         }}
                         className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${series.status_local && series.status_local !== 'not_tracked' ? 'bg-purple-500 text-black hover:bg-purple-400' : 'bg-zinc-800 text-white hover:bg-zinc-700'}`}

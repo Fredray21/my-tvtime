@@ -101,7 +101,7 @@ export const PersonDetailsView = () => {
             const next = new URLSearchParams(prev);
             Object.entries(changes).forEach(([key, value]) => (value === null ? next.delete(key) : next.set(key, value)));
             return next;
-        }, { replace: true });
+        }, { replace: true, preventScrollReset: true }); // changer un filtre ne doit pas remonter en haut de page
     };
     const setMediaTab = (value: MediaTab) => updateParams({ media: value });
     const setSortMode = (value: SortMode) => updateParams({ sort: value });

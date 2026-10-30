@@ -64,7 +64,31 @@ export interface WrappedResponse {
     backfill_days: number;
 }
 
+// --- NOTIFICATIONS PUSH ---
+export interface PushConfig {
+    enabled: boolean;
+    public_key: string;
+}
+
 export const createUserApi = (api: AxiosInstance) => ({
+    getPushConfig: async (): Promise<PushConfig> => {
+        const response = await api.get<PushConfig>('/push/config');
+        return response.data;
+    },
+
+    subscribePush: async (subscription: PushSubscriptionJSON) => {
+        return api.post('/push/subscribe', subscription);
+    },
+
+    unsubscribePush: async (endpoint: string) => {
+        return api.post('/push/unsubscribe', { endpoint });
+    },
+
+    sendTestPush: async (): Promise<{ sent: number }> => {
+        const response = await api.post<{ sent: number }>('/push/test');
+        return response.data;
+    },
+
     getWrapped: async (year?: number): Promise<WrappedResponse> => {
         const response = await api.get<WrappedResponse>('/user/wrapped', { params: year ? { year } : {} });
         return response.data;

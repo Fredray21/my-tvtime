@@ -9,6 +9,7 @@ interface LatestSectionProps {
     isLoading: boolean;
     emptyMessage?: string;
     viewAllLink?: string;
+    hideWhenEmpty?: boolean; // masque toute la section plutôt que d'afficher un cadre vide
 }
 
 export const LatestSection: React.FC<LatestSectionProps> = ({
@@ -16,16 +17,19 @@ export const LatestSection: React.FC<LatestSectionProps> = ({
     data,
     isLoading,
     emptyMessage = "Aucun contenu pour le moment...",
-    viewAllLink = "#"
+    viewAllLink = "#",
+    hideWhenEmpty = false
 }) => {
+    if (hideWhenEmpty && !isLoading && (!data || data.length === 0)) return null;
+
     return (
-        <div className="mt-8">
+        <div className="mt-6">
             <div className="flex justify-between items-end mb-4 px-1">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
                     {title}
                 </h3>
                 {data && data.length > 0 && (
-                    <Link to={viewAllLink} className="text-[16px] text-purple-500 font-bold hover:underline">
+                    <Link to={viewAllLink} className="text-xs text-purple-400 font-bold hover:underline">
                         Voir tout
                     </Link>
                 )}

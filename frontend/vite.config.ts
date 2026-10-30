@@ -9,6 +9,9 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate', // Automatically updates the app when a new version is deployed
+      workbox: {
+        importScripts: ['push-sw.js'], // Réception et affichage des notifications push (public/push-sw.js)
+      },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'My TV Time Dashboard',

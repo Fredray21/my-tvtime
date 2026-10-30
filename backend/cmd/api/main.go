@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/Fredray21/my-tvtime/internal/importservice"
 	"github.com/Fredray21/my-tvtime/internal/middleware"
 	"github.com/Fredray21/my-tvtime/internal/movie"
+	"github.com/Fredray21/my-tvtime/internal/notification"
 	"github.com/Fredray21/my-tvtime/internal/person"
 	"github.com/Fredray21/my-tvtime/internal/providers"
 	"github.com/Fredray21/my-tvtime/internal/saga"
@@ -56,7 +58,19 @@ func main() {
 	searchHandler := search.NewHandler(searchService)
 	personHandler := person.NewHandler(personService)
 	providersHandler := providers.NewHandler(tmdbClient)
-	calendarHandler := calendar.NewHandler(calendar.NewService(calendar.NewRepository(db), tmdbClient))
+	calendarService := calendar.NewService(calendar.NewRepository(db), tmdbClient)
+	calendarHandler := calendar.NewHandler(calendarService)
+
+	// Notifications push : désactivées tant que les clés VAPID ne sont pas fournies
+	notificationService := notification.NewService(
+		notification.NewRepository(db),
+		calendarService,
+		os.Getenv("VAPID_PUBLIC_KEY"),
+		os.Getenv("VAPID_PRIVATE_KEY"),
+		getEnv("VAPID_SUBJECT", FRONTEND_URL),
+	)
+	notificationHandler := notification.NewHandler(notificationService)
+	go notificationService.RunScheduler(context.Background())
 	sagaHandler := saga.NewHandler(saga.NewService(db, tmdbClient, movieService))
 
 	taskManager := importservice.NewTaskManager()
@@ -125,6 +139,12 @@ func main() {
 		// Sagas (collections TMDB)
 		api.GET("/sagas/:id", sagaHandler.HandleGetSaga)
 		api.GET("/user/sagas", sagaHandler.HandleGetUserSagas)
+
+		// Notifications push
+		api.GET("/push/config", notificationHandler.HandleGetConfig)
+		api.POST("/push/subscribe", notificationHandler.HandleSubscribe)
+		api.POST("/push/unsubscribe", notificationHandler.HandleUnsubscribe)
+		api.POST("/push/test", notificationHandler.HandleTest)
 
 		// Person
 		api.GET("/persons/:id", personHandler.HandleGetDetails)

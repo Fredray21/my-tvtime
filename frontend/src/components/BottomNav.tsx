@@ -1,7 +1,13 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { triggerVibration } from '../utils/haptics';
 
+// Pages ouvertes depuis le profil : l'onglet Profil reste allumé
+const PROFILE_SUB_PAGES = ['/settings', '/wrapped', '/sagas', '/saga/'];
+
 export const BottomNav = () => {
+    const { pathname } = useLocation();
+    const isProfileSection = PROFILE_SUB_PAGES.some(prefix => pathname.startsWith(prefix));
+
     return (
         <nav className="fixed bottom-0 left-0 right-0 bg-zinc-950/90 backdrop-blur-md border-t border-zinc-900 pb-safe pt-2 px-6 z-50">
             <div className="flex justify-around items-center max-w-md mx-auto h-14">
@@ -56,12 +62,12 @@ export const BottomNav = () => {
                     <span className="text-[10px] font-medium tracking-wide">Rechercher</span>
                 </NavLink>
 
-                {/* Lien Profil (Pour plus tard) */}
+                {/* Profil */}
                 <NavLink
                     onClick={() => triggerVibration(15)}
                     to="/profile"
                     className={({ isActive }) =>
-                        `flex flex-col items-center gap-1 transition-colors ${isActive ? 'text-purple-500' : 'text-zinc-500 hover:text-zinc-400'
+                        `flex flex-col items-center gap-1 transition-colors ${isActive || isProfileSection ? 'text-purple-500' : 'text-zinc-500 hover:text-zinc-400'
                         }`
                     }
                 >

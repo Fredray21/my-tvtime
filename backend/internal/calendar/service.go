@@ -270,48 +270,57 @@ func (s *Service) getMovies(userID string, inWindow func(string) bool, from stri
 			return
 		}
 
-		date, releaseType, isFrench := movie.ReleaseDate, "", false
+		// Sorties françaises (cinéma puis streaming / VOD), sinon la date internationale
+		releases := []frenchRelease{{Date: movie.ReleaseDate}}
+		isFrench := false
 		if releaseBytes, err := s.tmdbClient.GetMovieReleaseDates(movieID); err == nil {
-			if frDate, frType, ok := pickFrenchRelease(releaseBytes); ok {
-				date, releaseType, isFrench = frDate, frType, true
+			if frReleases := pickFrenchReleases(releaseBytes); len(frReleases) > 0 {
+				releases, isFrench = frReleases, true
 			}
 		}
 
-		if !inWindow(date) {
-			return
+		for _, release := range releases {
+			if !inWindow(release.Date) {
+				continue
+			}
+			mu.Lock()
+			items = append(items, CalendarItem{
+				Type:         "movie",
+				ID:           movie.ID,
+				Title:        movie.Title,
+				PosterPath:   movie.PosterPath,
+				BackdropPath: movie.BackdropPath,
+				AirDate:      release.Date,
+				ReleaseType:  release.Type,
+				IsFrench:     isFrench,
+			})
+			mu.Unlock()
 		}
-
-		mu.Lock()
-		items = append(items, CalendarItem{
-			Type:         "movie",
-			ID:           movie.ID,
-			Title:        movie.Title,
-			PosterPath:   movie.PosterPath,
-			BackdropPath: movie.BackdropPath,
-			AirDate:      date,
-			ReleaseType:  releaseType,
-			IsFrench:     isFrench,
-		})
-		mu.Unlock()
 	})
 
 	return items, nil
 }
 
-// Une sortie française arrive rarement plus de 6 mois après la sortie mondiale
+// Les sorties françaises (cinéma puis VOD) arrivent rarement plus d'un an après la sortie mondiale
 func mayHaveLaterFrenchRelease(releaseDate string, from string) bool {
 	release, err := time.Parse("2006-01-02", releaseDate)
 	if err != nil {
 		return true
 	}
-	return release.AddDate(0, 6, 0).Format("2006-01-02") >= from
+	return release.AddDate(1, 0, 0).Format("2006-01-02") >= from
 }
 
 // Types TMDB : 1 avant-première, 2 cinéma (limité), 3 cinéma, 4 numérique, 5 physique, 6 TV
-var releaseTypeNames = map[int]string{1: "premiere", 2: "theatrical", 3: "theatrical", 4: "digital", 5: "physical", 6: "tv"}
+var releaseTypeNames = map[int]string{2: "theatrical", 3: "theatrical", 4: "digital", 5: "physical", 6: "tv"}
 
-// pickFrenchRelease choisit la sortie française la plus pertinente : cinéma en priorité, sinon la plus tôt
-func pickFrenchRelease(data []byte) (string, string, bool) {
+type frenchRelease struct {
+	Date string
+	Type string // theatrical, digital, physical, tv ("" = date internationale)
+}
+
+// pickFrenchReleases renvoie les sorties françaises utiles : la 1ère au cinéma et la 1ère en streaming / VOD.
+// À défaut, la plus ancienne sortie restante (DVD, TV). Les avant-premières (festivals) sont ignorées.
+func pickFrenchReleases(data []byte) []frenchRelease {
 	var payload struct {
 		Results []struct {
 			ISO31661     string `json:"iso_3166_1"`
@@ -322,7 +331,7 @@ func pickFrenchRelease(data []byte) (string, string, bool) {
 		} `json:"results"`
 	}
 	if json.Unmarshal(data, &payload) != nil {
-		return "", "", false
+		return nil
 	}
 
 	for _, country := range payload.Results {
@@ -330,25 +339,34 @@ func pickFrenchRelease(data []byte) (string, string, bool) {
 			continue
 		}
 
-		bestDate, bestType, bestRank := "", 0, 99
+		earliest := make(map[string]string) // type -> date la plus ancienne
 		for _, rd := range country.ReleaseDates {
-			if len(rd.ReleaseDate) < 10 || rd.Type == 1 {
-				continue // On ignore les avant-premières (festivals)
+			name, known := releaseTypeNames[rd.Type]
+			if !known || len(rd.ReleaseDate) < 10 {
+				continue
 			}
 			date := rd.ReleaseDate[:10]
-			rank := 2
-			if rd.Type == 2 || rd.Type == 3 {
-				rank = 1
-			}
-			if rank < bestRank || (rank == bestRank && date < bestDate) {
-				bestDate, bestType, bestRank = date, rd.Type, rank
+			if current, exists := earliest[name]; !exists || date < current {
+				earliest[name] = date
 			}
 		}
-		if bestDate != "" {
-			return bestDate, releaseTypeNames[bestType], true
+
+		releases := make([]frenchRelease, 0, 2)
+		for _, name := range []string{"theatrical", "digital"} {
+			if date, ok := earliest[name]; ok {
+				releases = append(releases, frenchRelease{Date: date, Type: name})
+			}
 		}
+		if len(releases) == 0 {
+			for _, name := range []string{"physical", "tv"} {
+				if date, ok := earliest[name]; ok && (len(releases) == 0 || date < releases[0].Date) {
+					releases = []frenchRelease{{Date: date, Type: name}}
+				}
+			}
+		}
+		return releases
 	}
-	return "", "", false
+	return nil
 }
 
 // runParallel exécute fn sur chaque ID avec un nombre limité de goroutines

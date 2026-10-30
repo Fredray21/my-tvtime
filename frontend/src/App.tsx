@@ -6,6 +6,7 @@ import { AppLayout } from './components/AppLayout';
 import { SearchView } from './features/search/SearchView';
 import { MovieDetailsView } from './features/movie/MovieDetailsView';
 import { ProfileView } from './features/profile/ProfileView';
+import { SettingsView } from './features/profile/SettingsView';
 import { WatchlistView } from './features/watchlist/WatchlistView';
 import { TVDetailsView } from './features/tv/TVDetailsView';
 import { PersonDetailsView } from './features/person/PersonDetailsView';
@@ -121,6 +122,7 @@ export const App = () => {
                     )
                 },
                 { path: "/profile", element: <ProfileView /> },
+                { path: "/settings", element: <SettingsView /> },
             ]
         }
     ]), [api]);

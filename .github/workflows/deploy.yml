@@ -104,6 +104,8 @@ jobs:
               -e TMDB_API_KEY="${{ secrets.TMDB_API_KEY }}" \
               -e CLERK_JWKS_URL="${{ secrets.CLERK_JWKS_URL }}" \
               -e FRONTEND_URL="${{ secrets.FRONTEND_PROD_URL }}" \
+              -e VAPID_PUBLIC_KEY="${{ secrets.VAPID_PUBLIC_KEY }}" \
+              -e VAPID_PRIVATE_KEY="${{ secrets.VAPID_PRIVATE_KEY }}" \
               -e GIN_MODE=release \
               --restart unless-stopped \
               ghcr.io/${{ needs.build.outputs.owner }}/${{ needs.build.outputs.repo }}-api:${{ github.sha }}

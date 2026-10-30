@@ -50,6 +50,16 @@ type TMDBMovieResult struct {
 			Published string `json:"published_at"`
 		} `json:"results"`
 	} `json:"videos"`
+
+	// Saga (collection TMDB) à laquelle appartient le film, ex: "Harry Potter - La Collection"
+	BelongsToCollection *TMDBCollectionShort `json:"belongs_to_collection,omitempty"`
+}
+
+type TMDBCollectionShort struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	PosterPath   string `json:"poster_path"`
+	BackdropPath string `json:"backdrop_path"`
 }
 
 // TMDBSearchResponse représente la réponse globale de recherche TMDB

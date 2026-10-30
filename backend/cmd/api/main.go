@@ -11,6 +11,7 @@ import (
 	"github.com/Fredray21/my-tvtime/internal/movie"
 	"github.com/Fredray21/my-tvtime/internal/person"
 	"github.com/Fredray21/my-tvtime/internal/providers"
+	"github.com/Fredray21/my-tvtime/internal/saga"
 	"github.com/Fredray21/my-tvtime/internal/search"
 	"github.com/Fredray21/my-tvtime/internal/tmdb"
 	"github.com/Fredray21/my-tvtime/internal/tv"
@@ -56,6 +57,7 @@ func main() {
 	personHandler := person.NewHandler(personService)
 	providersHandler := providers.NewHandler(tmdbClient)
 	calendarHandler := calendar.NewHandler(calendar.NewService(calendar.NewRepository(db), tmdbClient))
+	sagaHandler := saga.NewHandler(saga.NewService(db, tmdbClient, movieService))
 
 	taskManager := importservice.NewTaskManager()
 	tvTimeImporter := importservice.NewTVTimeImporter(tmdbClient, taskManager)
@@ -119,6 +121,10 @@ func main() {
 		// Search
 		api.GET("/search/multi", searchHandler.HandleMultiSearch)
 		api.GET("/search/:type", searchHandler.HandlePagedSearch)
+
+		// Sagas (collections TMDB)
+		api.GET("/sagas/:id", sagaHandler.HandleGetSaga)
+		api.GET("/user/sagas", sagaHandler.HandleGetUserSagas)
 
 		// Person
 		api.GET("/persons/:id", personHandler.HandleGetDetails)

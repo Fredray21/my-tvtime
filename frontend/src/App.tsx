@@ -10,6 +10,8 @@ import { WatchlistView } from './features/watchlist/WatchlistView';
 import { TVDetailsView } from './features/tv/TVDetailsView';
 import { PersonDetailsView } from './features/person/PersonDetailsView';
 import { WrappedView } from './features/wrapped/WrappedView';
+import { SagaDetailsView } from './features/saga/SagaDetailsView';
+import { SagasView } from './features/saga/SagasView';
 import { MediaGridPage } from './components/MediaGridPage';
 import { Clock, Heart } from 'lucide-react';
 import { useApi } from './context/ApiContext';
@@ -60,6 +62,8 @@ export const App = () => {
                 { path: "/tv/:id", element: <TVDetailsView /> },
                 { path: "/person/:id", element: <PersonDetailsView /> },
                 { path: "/wrapped", element: <WrappedView /> },
+                { path: "/saga/:id", element: <SagaDetailsView /> },
+                { path: "/sagas", element: <SagasView /> },
                 { 
                     path: "/favorites/movies", 
                     element: (

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Cake, MapPin, Cross, Film, Tv, ExternalLink, Star } from 'lucide-react';
 import { useApi } from '../../context/ApiContext';
@@ -85,10 +85,27 @@ export const PersonDetailsView = () => {
         enabled: !isNaN(personId),
     });
 
-    const [roleTab, setRoleTab] = useState<RoleTab | null>(null);
-    const [mediaTab, setMediaTab] = useState<MediaTab | null>(null);
-    const [sortMode, setSortMode] = useState<SortMode>('recent');
-    const [seenFilter, setSeenFilter] = useState<SeenFilter>('all');
+    // Onglets, tri et filtre dans l'URL : au retour depuis un film, on retrouve la filmographie telle qu'on l'a laissée
+    const [searchParams, setSearchParams] = useSearchParams();
+    const roleParam = searchParams.get('role');
+    const mediaParam = searchParams.get('media');
+    const sortParam = searchParams.get('sort');
+    const seenParam = searchParams.get('seen');
+    const roleTab: RoleTab | null = roleParam === 'cast' || roleParam === 'crew' ? roleParam : null;
+    const mediaTab: MediaTab | null = mediaParam === 'movie' || mediaParam === 'tv' ? mediaParam : null;
+    const sortMode: SortMode = sortParam === 'popular' || sortParam === 'rating' ? sortParam : 'recent';
+    const seenFilter: SeenFilter = seenParam === 'seen' || seenParam === 'unseen' ? seenParam : 'all';
+
+    const updateParams = (changes: Record<string, string | null>) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            Object.entries(changes).forEach(([key, value]) => (value === null ? next.delete(key) : next.set(key, value)));
+            return next;
+        }, { replace: true });
+    };
+    const setMediaTab = (value: MediaTab) => updateParams({ media: value });
+    const setSortMode = (value: SortMode) => updateParams({ sort: value });
+    const setSeenFilter = (value: SeenFilter) => updateParams({ seen: value });
     const [isBioExpanded, setIsBioExpanded] = useState(false);
 
     // Par défaut : "Acteur" pour les acteurs, "Équipe" pour les réalisateurs / scénaristes...
@@ -318,8 +335,7 @@ export const PersonDetailsView = () => {
                                     key={role}
                                     onClick={() => {
                                         triggerVibration();
-                                        setRoleTab(role);
-                                        setMediaTab(null);
+                                        updateParams({ role, media: null });
                                     }}
                                     className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeRole === role ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
                                 >

@@ -71,6 +71,14 @@ export interface TMDBMediaResult {
     videos?: {
         results: TMDBVideo[];
     };
+
+    // Films : saga (collection TMDB) du film
+    belongs_to_collection?: {
+        id: number;
+        name: string;
+        poster_path: string | null;
+        backdrop_path: string | null;
+    } | null;
 }
 
 
@@ -165,6 +173,27 @@ export interface CreditsResponse {
     cast: CastMember[];
     crew: CrewMember[];
 }
+
+// --- SAGAS (COLLECTIONS TMDB) ---
+export interface SagaPart extends MediaCustomResponse {
+    is_released: boolean;
+}
+
+export interface SagaResponse {
+    id: number;
+    name: string;
+    overview: string;
+    poster_path: string;
+    backdrop_path: string;
+    parts: SagaPart[];
+    released_count: number;
+    watched_count: number;
+    upcoming_count: number;
+    is_complete: boolean;
+    next_movie: SagaPart | null;
+}
+
+export type SagaSummary = Omit<SagaResponse, 'overview' | 'parts'>;
 
 // --- CALENDRIER (À VENIR) ---
 export interface CalendarItem {
@@ -318,6 +347,16 @@ export const createMediaApi = (api: AxiosInstance) => ({
 
     getMediaCredits: async (id: number, mediaType: 'movie' | 'tv'): Promise<CreditsResponse> => {
         const response = await api.get(`/${mediaType}s/${id}/credits`);
+        return response.data;
+    },
+
+    getSaga: async (id: number): Promise<SagaResponse> => {
+        const response = await api.get<SagaResponse>(`/sagas/${id}`);
+        return response.data;
+    },
+
+    getUserSagas: async (): Promise<SagaSummary[]> => {
+        const response = await api.get<SagaSummary[]>('/user/sagas');
         return response.data;
     },
 

@@ -6,6 +6,7 @@ import { triggerVibration } from '../../utils/haptics';
 import type { UpdateStatusDTO } from '../../api/mediaApi';
 import { MediaTrailers } from '../../components/MediaTrailers';
 import { WatchProviders } from '../../components/WatchProviders';
+import { SagaProgress } from '../../components/SagaProgress';
 
 export const MovieDetailsView = () => {
     const { id } = useParams<{ id: string }>();
@@ -83,6 +84,8 @@ export const MovieDetailsView = () => {
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['movie', mediaType, movieId] });
             queryClient.invalidateQueries({ queryKey: ['watchlist'] });
+            queryClient.invalidateQueries({ queryKey: ['saga'] });
+            queryClient.invalidateQueries({ queryKey: ['sagas'] });
         },
     });
 
@@ -257,6 +260,11 @@ export const MovieDetailsView = () => {
 
                 {/* Où regarder */}
                 <WatchProviders id={movieId} mediaType={mediaType} />
+
+                {/* Saga */}
+                {movie.belongs_to_collection && (
+                    <SagaProgress collectionId={movie.belongs_to_collection.id} currentMovieId={movieId} />
+                )}
 
                 {/* Genres */}
                 {movie.genres && movie.genres.length > 0 && (

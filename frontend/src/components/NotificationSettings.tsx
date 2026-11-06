@@ -74,7 +74,7 @@ export const NotificationSettings = () => {
                 </div>
                 <div className="flex-grow min-w-0">
                     <p className="text-sm font-bold text-white">Notifications</p>
-                    <p className="text-xs text-zinc-400">Nouveaux épisodes et sorties de ta watchlist</p>
+                    <p className="text-xs text-zinc-400">Sorties des films de ta watchlist, et nouveaux épisodes des séries où tu as activé la cloche 🔔</p>
                 </div>
                 {canToggle && (
                     <button

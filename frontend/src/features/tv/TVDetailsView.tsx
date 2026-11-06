@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../../context/ApiContext';
 import { MediaCard } from '../../components/MediaCard';
 import { triggerVibration } from '../../utils/haptics';
-import { CheckCircle } from 'lucide-react';
+import { Bell, BellOff, CheckCircle } from 'lucide-react';
 import { SeasonAccordion } from '../../components/SeasonAccordion';
 import type { MediaCustomResponse, SeasonCustomResponse, UpdateStatusDTO } from '../../api/mediaApi';
 import { MEDIA_MUTATION_KEY, type MediaMutationVars } from '../../offline/mutations';
@@ -47,7 +47,14 @@ export const TVDetailsView = () => {
         enabled: !isNaN(seriesId) && !!series,
     });
 
-    // Suivre / ne plus suivre / favori : affichage immédiat, et mise en file d'attente si hors ligne
+    // Serveur sans clés VAPID : pas de cloche de notifications
+    const { data: pushConfig } = useQuery({
+        queryKey: ['pushConfig'],
+        queryFn: () => api.user.getPushConfig(),
+        staleTime: Infinity,
+    });
+
+    // Suivre / ne plus suivre / favori / notifications : affichage immédiat, et mise en file d'attente si hors ligne
     const seriesKey = ['tv', seriesId];
     const mediaMutation = useMutation<unknown, Error, MediaMutationVars, { previousSeries?: MediaCustomResponse }>({
         mutationKey: MEDIA_MUTATION_KEY,
@@ -56,12 +63,19 @@ export const TVDetailsView = () => {
             const previousSeries = queryClient.getQueryData<MediaCustomResponse>(seriesKey);
             const isUnfollow = vars.kind === 'remove';
 
+            if (vars.kind === 'notifications') {
+                queryClient.setQueryData<MediaCustomResponse>(seriesKey, old => old && { ...old, notifications_enabled: vars.enabled });
+                return { previousSeries };
+            }
+
             queryClient.setQueryData<MediaCustomResponse>(seriesKey, (old) => {
                 if (!old) return old;
                 return {
                     ...old,
                     status_local: isUnfollow ? 'not_tracked' : vars.dto.status_local,
                     is_favorite: isUnfollow ? false : vars.dto.is_favorite,
+                    // Ne plus suivre supprime aussi le réglage des notifications
+                    notifications_enabled: isUnfollow ? false : old.notifications_enabled,
                     // "Ne plus suivre" efface l'historique : tous les compteurs de saisons repassent à 0
                     seasons: isUnfollow ? old.seasons?.map(s => ({ ...s, watched_count: 0 })) : old.seasons,
                 };
@@ -139,12 +153,27 @@ export const TVDetailsView = () => {
                 </button>
 
                 {series.status_local && series.status_local !== 'not_tracked' && (
-                    <button
-                        onClick={() => { triggerVibration([30, 100, 30]); changeSeriesStatus({ newStatus: series.status_local, isFavorite: !series.is_favorite }); }}
-                        className="absolute top-4 right-4 flex items-center justify-center w-10 h-10 rounded-full text-white transition bg-black/40 hover:bg-black/60 aspect-square"
-                    >
-                        {series.is_favorite ? '❤️' : '🤍'}
-                    </button>
+                    <div className="absolute top-4 right-4 flex items-center gap-2">
+                        {pushConfig?.enabled && (
+                            <button
+                                onClick={() => {
+                                    triggerVibration([15, 30]);
+                                    mediaMutation.mutate({ kind: 'notifications', tmdbId: seriesId, enabled: !series.notifications_enabled });
+                                }}
+                                aria-label={series.notifications_enabled ? 'Désactiver les notifications des nouveaux épisodes' : 'Activer les notifications des nouveaux épisodes'}
+                                title={series.notifications_enabled ? 'Notifications des nouveaux épisodes activées' : 'Me prévenir des nouveaux épisodes'}
+                                className={`flex items-center justify-center w-10 h-10 rounded-full transition aspect-square ${series.notifications_enabled ? 'bg-emerald-500/80 text-white hover:bg-emerald-500' : 'bg-black/40 text-zinc-300 hover:bg-black/60'}`}
+                            >
+                                {series.notifications_enabled ? <Bell size={18} /> : <BellOff size={18} />}
+                            </button>
+                        )}
+                        <button
+                            onClick={() => { triggerVibration([30, 100, 30]); changeSeriesStatus({ newStatus: series.status_local, isFavorite: !series.is_favorite }); }}
+                            className="flex items-center justify-center w-10 h-10 rounded-full text-white transition bg-black/40 hover:bg-black/60 aspect-square"
+                        >
+                            {series.is_favorite ? '❤️' : '🤍'}
+                        </button>
+                    </div>
                 )}
             </div>
 

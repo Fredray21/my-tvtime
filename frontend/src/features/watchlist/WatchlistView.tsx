@@ -81,6 +81,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
     const mediaMutation = useMutation<unknown, Error, MediaMutationVars>({
         mutationKey: MEDIA_MUTATION_KEY,
         onMutate: async (vars) => {
+            if (vars.kind === 'notifications') return; // réglage propre aux séries, sans effet sur la liste
             await queryClient.cancelQueries({ queryKey: watchlistKey });
             // Un film vu (ou retiré) quitte la liste "À voir"
             const tmdbId = vars.kind === 'remove' ? vars.tmdbId : vars.dto.tmdb_id;

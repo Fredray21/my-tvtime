@@ -65,3 +65,40 @@ func TestBuildMoviePayload(t *testing.T) {
 		t.Error("les sorties cinéma et streaming doivent avoir des clés distinctes")
 	}
 }
+
+func TestShouldNotifyMovie(t *testing.T) {
+	cases := []struct {
+		name string
+		item calendar.CalendarItem
+		want bool
+	}{
+		{"sortie cinéma", calendar.CalendarItem{Type: "movie", ReleaseType: "theatrical"}, true},
+		{"sortie directe en streaming", calendar.CalendarItem{Type: "movie", ReleaseType: "digital"}, true},
+		{"VOD après le cinéma", calendar.CalendarItem{Type: "movie", ReleaseType: "digital", IsLaterRelease: true}, false},
+	}
+	for _, c := range cases {
+		if got := shouldNotifyMovie(c.item); got != c.want {
+			t.Errorf("%s : obtenu %v, attendu %v", c.name, got, c.want)
+		}
+	}
+}
+
+func TestShouldNotifyEpisode(t *testing.T) {
+	notified := map[int]bool{42: true}
+
+	if !shouldNotifyEpisode(ep(2, 5, "standard", ""), notified) {
+		t.Error("un épisode d'une série avec la cloche activée doit être notifié")
+	}
+
+	watched := ep(2, 5, "standard", "")
+	watched.IsWatched = true
+	if shouldNotifyEpisode(watched, notified) {
+		t.Error("un épisode déjà vu ne doit pas être notifié")
+	}
+
+	other := ep(2, 5, "standard", "")
+	other.ID = 99
+	if shouldNotifyEpisode(other, notified) {
+		t.Error("une série sans la cloche (défaut) ne doit pas être notifiée")
+	}
+}

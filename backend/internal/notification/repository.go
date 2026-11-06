@@ -80,6 +80,25 @@ func (r *Repository) GetSubscribedUsers() ([]string, error) {
 	return users, nil
 }
 
+// GetNotifiedSeries renvoie les séries dont l'utilisateur a activé les notifications des nouveaux épisodes
+func (r *Repository) GetNotifiedSeries(userID string) (map[int]bool, error) {
+	rows, err := r.db.Query(`SELECT tmdb_series_id FROM user_series WHERE user_id = $1 AND notifications_enabled`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	series := make(map[int]bool)
+	for rows.Next() {
+		var seriesID int
+		if err := rows.Scan(&seriesID); err != nil {
+			return nil, err
+		}
+		series[seriesID] = true
+	}
+	return series, rows.Err()
+}
+
 // MarkNotified renvoie true si cette sortie n'avait pas encore été notifiée à cet utilisateur
 // (detail : "S3E5" pour un épisode, "theatrical" / "digital" pour un film)
 func (r *Repository) MarkNotified(userID string, mediaType string, tmdbID int, detail string) (bool, error) {

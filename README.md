@@ -63,7 +63,8 @@ Watchlist, épisodes vus, calendrier des sorties, sagas, fiches acteurs, récap 
 - **Image partageable** format story (1080×1920) générée côté navigateur, 4 thèmes, partage natif sur mobile.
 
 ### 🔔 Notifications push
-- Nouvel épisode d'une série suivie, sortie cinéma ou streaming d'un film de la watchlist.
+- Films de la watchlist : toujours notifiés à leur 1ère sortie en France (cinéma, ou streaming / VOD pour un film sorti directement sur une plateforme). La VOD d'un film déjà sorti au cinéma n'est pas notifiée.
+- Séries : désactivées par défaut, à activer série par série avec la cloche 🔔 de la fiche.
 - Envoyées entre 9h et 22h (heure de Paris), une notification par série, sans doublon.
 - Réabonnement silencieux automatique (abonnement expiré, clés changées).
 
@@ -273,6 +274,7 @@ Les migrations SQL (`backend/database/migrations`) sont **embarquées dans le bi
 | `000002_add_tv_schema` | Séries suivies, épisodes vus |
 | `000003_add_metadata_tables` | Métadonnées films / épisodes (durées, dates) |
 | `000004_add_push_tables` | Abonnements push, notifications envoyées |
+| `000005_add_series_notifications` | Cloche de notifications par série (désactivée par défaut) |
 
 Pour ajouter une migration : créer `00000N_description.up.sql` et `.down.sql` dans ce dossier.
 
@@ -309,6 +311,7 @@ Toutes les routes sont préfixées par `/api/v1` et nécessitent un JWT Clerk (`
 | `GET` | `/tvs/:id` | Détails d'une série + progression |
 | `POST` | `/tvs/status` | Suivre / mettre à jour une série |
 | `DELETE` | `/tvs/:id` | Ne plus suivre (supprime les épisodes vus) |
+| `PUT` | `/tvs/:id/notifications` | Activer / désactiver les notifications des nouveaux épisodes (`{ "enabled": bool }`) |
 | `GET` | `/tvs/watchlist` · `/tvs/favorites` · `/tvs/upcoming` | Listes |
 | `GET` | `/tvs/:id/similar` · `/tvs/:id/credits` · `/tvs/:id/providers` | Infos complémentaires |
 | `GET` | `/tvs/:id/season/:season` | Épisodes d'une saison + statut vu |

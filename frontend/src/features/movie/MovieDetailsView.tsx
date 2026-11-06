@@ -47,6 +47,7 @@ export const MovieDetailsView = () => {
     const mediaMutation = useMutation<unknown, Error, MediaMutationVars, { previousMovie?: MediaCustomResponse }>({
         mutationKey: MEDIA_MUTATION_KEY,
         onMutate: async (vars) => {
+            if (vars.kind === 'notifications') return {}; // réglage propre aux séries
             await queryClient.cancelQueries({ queryKey: movieKey });
             const previousMovie = queryClient.getQueryData<MediaCustomResponse>(movieKey);
 

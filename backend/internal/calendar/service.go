@@ -37,8 +37,9 @@ type CalendarItem struct {
 	Network       string `json:"network,omitempty"`
 
 	// Films
-	ReleaseType string `json:"release_type,omitempty"` // theatrical, digital, physical, tv, premiere
-	IsFrench    bool   `json:"is_french_date,omitempty"`
+	ReleaseType    string `json:"release_type,omitempty"` // theatrical, digital, physical, tv, premiere
+	IsFrench       bool   `json:"is_french_date,omitempty"`
+	IsLaterRelease bool   `json:"is_later_release,omitempty"` // le film est déjà sorti avant (ex : VOD après le cinéma)
 }
 
 type CalendarDay struct {
@@ -283,22 +284,34 @@ func (s *Service) getMovies(userID string, inWindow func(string) bool, from stri
 			if !inWindow(release.Date) {
 				continue
 			}
+			isLater := hasEarlierRelease(releases, release.Date)
 			mu.Lock()
 			items = append(items, CalendarItem{
-				Type:         "movie",
-				ID:           movie.ID,
-				Title:        movie.Title,
-				PosterPath:   movie.PosterPath,
-				BackdropPath: movie.BackdropPath,
-				AirDate:      release.Date,
-				ReleaseType:  release.Type,
-				IsFrench:     isFrench,
+				Type:           "movie",
+				ID:             movie.ID,
+				Title:          movie.Title,
+				PosterPath:     movie.PosterPath,
+				BackdropPath:   movie.BackdropPath,
+				AirDate:        release.Date,
+				ReleaseType:    release.Type,
+				IsFrench:       isFrench,
+				IsLaterRelease: isLater,
 			})
 			mu.Unlock()
 		}
 	})
 
 	return items, nil
+}
+
+// hasEarlierRelease : une autre sortie du film a eu lieu avant cette date (ex : cinéma avant la VOD)
+func hasEarlierRelease(releases []frenchRelease, date string) bool {
+	for _, other := range releases {
+		if other.Date != "" && other.Date < date {
+			return true
+		}
+	}
+	return false
 }
 
 // Les sorties françaises (cinéma puis VOD) arrivent rarement plus d'un an après la sortie mondiale

@@ -19,7 +19,16 @@ export interface EpisodeMutationVars {
 
 export type MediaMutationVars =
     | { kind: 'status'; dto: UpdateStatusDTO }
-    | { kind: 'remove'; tmdbId: number; mediaType: 'movie' | 'tv' };
+    | { kind: 'remove'; tmdbId: number; mediaType: 'movie' | 'tv' }
+    | { kind: 'notifications'; tmdbId: number; enabled: boolean };
+
+const mutationMediaType = (vars: MediaMutationVars): 'movie' | 'tv' => {
+    if (vars.kind === 'status') return vars.dto.media_type;
+    if (vars.kind === 'remove') return vars.mediaType;
+    return 'tv';
+};
+
+const mutationTmdbId = (vars: MediaMutationVars) => (vars.kind === 'status' ? vars.dto.tmdb_id : vars.tmdbId);
 
 export const registerOfflineMutations = (queryClient: QueryClient, media: MediaApi) => {
     queryClient.setMutationDefaults(EPISODE_MUTATION_KEY, {
@@ -43,13 +52,21 @@ export const registerOfflineMutations = (queryClient: QueryClient, media: MediaA
     });
 
     queryClient.setMutationDefaults(MEDIA_MUTATION_KEY, {
-        mutationFn: (vars: MediaMutationVars) =>
-            vars.kind === 'remove'
-                ? media.removeMedia(vars.tmdbId, vars.mediaType)
-                : media.updateStatus(vars.dto),
+        mutationFn: (vars: MediaMutationVars) => {
+            switch (vars.kind) {
+                case 'remove': return media.removeMedia(vars.tmdbId, vars.mediaType);
+                case 'notifications': return media.setSeriesNotifications(vars.tmdbId, vars.enabled);
+                default: return media.updateStatus(vars.dto);
+            }
+        },
         onSettled: (_data: unknown, _error: unknown, vars: MediaMutationVars) => {
-            const mediaType = vars.kind === 'remove' ? vars.mediaType : vars.dto.media_type;
-            const tmdbId = vars.kind === 'remove' ? vars.tmdbId : vars.dto.tmdb_id;
+            const mediaType = mutationMediaType(vars);
+            const tmdbId = mutationTmdbId(vars);
+            if (vars.kind === 'notifications') {
+                // Seule la fiche de la série affiche la cloche
+                queryClient.invalidateQueries({ queryKey: ['tv', tmdbId] });
+                return;
+            }
             queryClient.invalidateQueries({ queryKey: mediaType === 'movie' ? ['movie', 'movie', tmdbId] : ['tv', tmdbId] });
             queryClient.invalidateQueries({ queryKey: ['watchlist', mediaType] });
             queryClient.invalidateQueries({ queryKey: ['favorites', mediaType] });

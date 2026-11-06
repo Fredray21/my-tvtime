@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// ErrSeriesNotTracked : la série n'est pas dans la liste de l'utilisateur
+var ErrSeriesNotTracked = errors.New("series not found in user list")
+
 type Repository struct {
 	db *sql.DB
 }
@@ -43,14 +46,14 @@ func (r *Repository) SaveSeriesStatus(userID string, tmdbSeriesID int, status st
 // GetSeriesStatus : Récupère le statut d'une série spécifique pour un utilisateur donné
 func (r *Repository) GetSeriesStatus(userID string, tmdbSeriesID int) (*SeriesRecord, error) {
 	query := `
-		SELECT id, user_id, tmdb_series_id, status, is_favorite, created_at, updated_at
+		SELECT id, user_id, tmdb_series_id, status, is_favorite, notifications_enabled, created_at, updated_at
 		FROM user_series 
 		WHERE user_id = $1 AND tmdb_series_id = $2
 	`
 	var series SeriesRecord
 	err := r.db.QueryRow(query, userID, tmdbSeriesID).Scan(
 		&series.ID, &series.UserID, &series.TMDBSeriesID,
-		&series.Status, &series.IsFavorite, &series.CreatedAt, &series.UpdatedAt,
+		&series.Status, &series.IsFavorite, &series.NotificationsEnabled, &series.CreatedAt, &series.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -128,6 +131,24 @@ func (r *Repository) GetFavoriteSeriesRecords(userID string) ([]SeriesRecord, er
 }
 
 // DeleteSeries : Supprime complètement une série du suivi de l'utilisateur
+// SetSeriesNotifications active / désactive les notifications des nouveaux épisodes d'une série suivie
+func (r *Repository) SetSeriesNotifications(userID string, tmdbSeriesID int, enabled bool) error {
+	result, err := r.db.Exec(`
+		UPDATE user_series SET notifications_enabled = $3
+		WHERE user_id = $1 AND tmdb_series_id = $2`, userID, tmdbSeriesID, enabled)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrSeriesNotTracked
+	}
+	return nil
+}
+
 func (r *Repository) DeleteSeries(userID string, tmdbSeriesID int) error {
 	query := `DELETE FROM user_series WHERE user_id = $1 AND tmdb_series_id = $2`
 	result, err := r.db.Exec(query, userID, tmdbSeriesID)

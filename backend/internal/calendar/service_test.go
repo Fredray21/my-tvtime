@@ -61,3 +61,18 @@ func TestMayHaveLaterFrenchRelease(t *testing.T) {
 		t.Error("une date invalide doit être vérifiée par prudence")
 	}
 }
+
+func TestHasEarlierRelease(t *testing.T) {
+	releases := []frenchRelease{{Date: "2026-02-05", Type: "theatrical"}, {Date: "2026-06-10", Type: "digital"}}
+	if hasEarlierRelease(releases, "2026-02-05") {
+		t.Error("la sortie cinéma est la 1ère sortie du film")
+	}
+	if !hasEarlierRelease(releases, "2026-06-10") {
+		t.Error("la VOD arrive après le cinéma")
+	}
+
+	direct := []frenchRelease{{Date: "2026-03-01", Type: "digital"}}
+	if hasEarlierRelease(direct, "2026-03-01") {
+		t.Error("une sortie directe en streaming est la 1ère sortie du film")
+	}
+}

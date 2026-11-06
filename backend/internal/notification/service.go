@@ -159,6 +159,12 @@ func (s *Service) notifyUser(userID string) error {
 		return err
 	}
 
+	// Séries dont l'utilisateur a activé la cloche (désactivées par défaut)
+	notifiedSeries, err := s.repo.GetNotifiedSeries(userID)
+	if err != nil {
+		return err
+	}
+
 	for _, day := range cal.Days {
 		if day.Date != cal.Today {
 			continue
@@ -170,7 +176,9 @@ func (s *Service) notifyUser(userID string) error {
 		for _, item := range day.Items {
 			switch item.Type {
 			case "movie":
-				// Sortie au cinéma ou en streaming / VOD d'un film de la watchlist
+				if !shouldNotifyMovie(item) {
+					continue
+				}
 				isNew, err := s.repo.MarkNotified(userID, "movie", item.ID, releaseKey(item))
 				if err != nil {
 					return err
@@ -182,7 +190,7 @@ func (s *Service) notifyUser(userID string) error {
 				}
 
 			case "episode":
-				if item.IsWatched {
+				if !shouldNotifyEpisode(item, notifiedSeries) {
 					continue
 				}
 				detail := fmt.Sprintf("S%dE%d", item.SeasonNumber, item.EpisodeNumber)
@@ -207,6 +215,17 @@ func (s *Service) notifyUser(userID string) error {
 		}
 	}
 	return nil
+}
+
+// shouldNotifyMovie : on prévient uniquement de la 1ère sortie d'un film de la watchlist
+// (cinéma, ou streaming / VOD pour un film sorti directement sur une plateforme)
+func shouldNotifyMovie(item calendar.CalendarItem) bool {
+	return !item.IsLaterRelease
+}
+
+// shouldNotifyEpisode : épisode pas encore vu d'une série dont les notifications sont activées
+func shouldNotifyEpisode(item calendar.CalendarItem, notifiedSeries map[int]bool) bool {
+	return !item.IsWatched && notifiedSeries[item.ID]
 }
 
 // releaseKey distingue la sortie cinéma de la sortie streaming d'un même film

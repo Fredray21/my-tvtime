@@ -121,6 +121,7 @@ func main() {
 			tvRoutes.GET("/:id/similar", tvHandler.HandlerGetSimilarSeries)
 			tvRoutes.GET("/upcoming", tvHandler.HandlerGetUpcomingSeries)
 			tvRoutes.GET("/:id/credits", tvHandler.HandlerGetSerieCredits)
+			tvRoutes.PUT("/:id/notifications", tvHandler.HandlerSetNotifications)
 			tvRoutes.GET("/:id/providers", providersHandler.HandleGetProviders("tv"))
 
 

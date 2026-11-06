@@ -1,6 +1,7 @@
 package tv
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -127,6 +128,42 @@ func (h *Handler) HandlerUpdateStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Statut de la série mis à jour"})
+}
+
+type SeriesNotificationsPayload struct {
+	Enabled *bool `json:"enabled" binding:"required"`
+}
+
+// PUT /api/tvs/:id/notifications (Activer / désactiver les notifications des nouveaux épisodes)
+func (h *Handler) HandlerSetNotifications(c *gin.Context) {
+	userID, exists := c.Get("clerkUserID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Utilisateur non authentifié"})
+		return
+	}
+
+	seriesID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID invalide"})
+		return
+	}
+
+	var req SeriesNotificationsPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON invalide"})
+		return
+	}
+
+	if err := h.service.SetSeriesNotifications(userID.(string), seriesID, *req.Enabled); err != nil {
+		if errors.Is(err, ErrSeriesNotTracked) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Série non suivie"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"notifications_enabled": *req.Enabled})
 }
 
 // DELETE /api/tv/:id (Supprimer complètement la série du profil)

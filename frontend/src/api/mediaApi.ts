@@ -87,6 +87,8 @@ export interface MediaCustomResponse extends TMDBMediaResult {
     status_local: UpdateStatusDTO['status_local'];
     is_favorite: boolean;
     rewatch_count: number;
+    // Séries : notifications des nouveaux épisodes activées (fiche détail uniquement)
+    notifications_enabled?: boolean;
     media_type?: 'movie' | 'tv';
     created_at?: string;
     updated_at?: string;
@@ -284,6 +286,11 @@ export const createMediaApi = (api: AxiosInstance) => ({
 
     removeMedia: async (id: number, mediaType: 'movie' | 'tv') => {
         return api.delete(`/${mediaType}s/${id}`);
+    },
+
+    // Notifications des nouveaux épisodes d'une série suivie (désactivées par défaut)
+    setSeriesNotifications: async (seriesId: number, enabled: boolean) => {
+        return api.put(`/tvs/${seriesId}/notifications`, { enabled });
     },
 
     getMediaDetails: async (id: number, mediaType: 'movie' | 'tv'): Promise<MediaCustomResponse> => {

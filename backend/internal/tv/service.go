@@ -135,11 +135,12 @@ type TMDBSeriesResult struct {
 // Réponse formatée pour ton frontend
 type SeriesCustomResponse struct {
 	TMDBSeriesResult
-	StatusLocal string    `json:"status_local"` // 'watchlist', 'watching', 'finished', 'pending', 'not_tracked'
-	IsFavorite  bool      `json:"is_favorite"`
-	MediaType   string    `json:"media_type"`
-	CreatedAt   time.Time `json:"created_at,omitempty"`
-	UpdatedAt   time.Time `json:"updated_at,omitempty"`
+	StatusLocal          string    `json:"status_local"` // 'watchlist', 'watching', 'finished', 'pending', 'not_tracked'
+	IsFavorite           bool      `json:"is_favorite"`
+	NotificationsEnabled bool      `json:"notifications_enabled"` // nouveaux épisodes (fiche détail uniquement)
+	MediaType            string    `json:"media_type"`
+	CreatedAt            time.Time `json:"created_at,omitempty"`
+	UpdatedAt            time.Time `json:"updated_at,omitempty"`
 
 	NextSeasonNumber  int `json:"next_season_number"`
 	NextEpisodeNumber int `json:"next_episode_number"`
@@ -352,6 +353,7 @@ func (s *TVService) GetSeriesDetailsForUser(userID string, seriesID int) (*Serie
 	if err == nil && record != nil {
 		customSeries.StatusLocal = record.Status
 		customSeries.IsFavorite = record.IsFavorite
+		customSeries.NotificationsEnabled = record.NotificationsEnabled
 		customSeries.CreatedAt = record.CreatedAt
 		customSeries.UpdatedAt = record.UpdatedAt
 	} else {
@@ -359,6 +361,11 @@ func (s *TVService) GetSeriesDetailsForUser(userID string, seriesID int) (*Serie
 	}
 
 	return customSeries, nil
+}
+
+// SetSeriesNotifications active / désactive les notifications des nouveaux épisodes d'une série suivie
+func (s *TVService) SetSeriesNotifications(userID string, tmdbSeriesID int, enabled bool) error {
+	return s.repo.SetSeriesNotifications(userID, tmdbSeriesID, enabled)
 }
 
 // UpdateSeriesStatus permet de forcer un statut (ex: 'watchlist' ou 'favorite') sans regarder d'épisodes

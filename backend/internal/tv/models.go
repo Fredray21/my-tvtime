@@ -47,13 +47,14 @@ func (r SeriesUpcomingRecord) GetCreatedAt() time.Time { return r.CreatedAt }
 func (r SeriesUpcomingRecord) GetUpdatedAt() time.Time { return r.UpdatedAt }
 
 type SeriesRecord struct {
-	ID           string
-	UserID       string
-	TMDBSeriesID int
-	Status       string
-	IsFavorite   bool
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID                   string
+	UserID               string
+	TMDBSeriesID         int
+	Status               string
+	IsFavorite           bool
+	NotificationsEnabled bool // notifications push des nouveaux épisodes (désactivées par défaut)
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 type SeriesUpcomingRecord struct {

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../../context/ApiContext';
 import { MediaCard } from '../../components/MediaCard';
 import { triggerVibration } from '../../utils/haptics';
-import { Bell, BellOff, CheckCircle } from 'lucide-react';
+import { Bell, BellOff, CheckCircle, Clock, Heart, Minus, Plus, Star } from 'lucide-react';
 import { SeasonAccordion } from '../../components/SeasonAccordion';
 import type { MediaCustomResponse, SeasonCustomResponse, UpdateStatusDTO } from '../../api/mediaApi';
 import { MEDIA_MUTATION_KEY, type MediaMutationVars } from '../../offline/mutations';
@@ -171,7 +171,9 @@ export const TVDetailsView = () => {
                             onClick={() => { triggerVibration([30, 100, 30]); changeSeriesStatus({ newStatus: series.status_local, isFavorite: !series.is_favorite }); }}
                             className="flex items-center justify-center w-10 h-10 rounded-full text-white transition bg-black/40 hover:bg-black/60 aspect-square"
                         >
-                            {series.is_favorite ? '❤️' : '🤍'}
+                            {series.is_favorite
+                                ? <Heart size={20} fill="currentColor" className="text-red-500" />
+                                : <Heart size={20} />}
                         </button>
                     </div>
                 )}
@@ -183,9 +185,9 @@ export const TVDetailsView = () => {
 
                 <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-zinc-400 mb-6">
                     <span className="bg-zinc-800/80 px-2 py-1 rounded-md text-zinc-200">{year}</span>
-                    {formattedRuntime && <span>⏱ ~{formattedRuntime}/ép.</span>}
+                    {formattedRuntime && <span className="inline-flex items-center gap-1"><Clock size={12} /> ~{formattedRuntime}/ép.</span>}
                     <span>Saisons : {series.number_of_seasons}</span>
-                    {series.vote_average !== undefined && series.vote_average > 0 && <span className="text-amber-400">⭐️ {series.vote_average.toFixed(1)}/10</span>}
+                    {series.vote_average !== undefined && series.vote_average > 0 && <span className="inline-flex items-center gap-1 text-amber-400"><Star size={12} fill="currentColor" /> {series.vote_average.toFixed(1)}/10</span>}
                 </div>
 
                 <div className="mb-8">
@@ -211,9 +213,9 @@ export const TVDetailsView = () => {
                             }
                             changeSeriesStatus({ newStatus: isTracked ? 'not_tracked' : 'watching', isFavorite: series.is_favorite });
                         }}
-                        className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${series.status_local && series.status_local !== 'not_tracked' ? 'bg-purple-500 text-black hover:bg-purple-400' : 'bg-zinc-800 text-white hover:bg-zinc-700'}`}
+                        className={`w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${series.status_local && series.status_local !== 'not_tracked' ? 'bg-purple-500 text-black hover:bg-purple-400' : 'bg-zinc-800 text-white hover:bg-zinc-700'}`}
                     >
-                        {series.status_local && series.status_local !== 'not_tracked' ? `➖ Ne plus suivre` : '➕ Suivre la série'}
+                        {series.status_local && series.status_local !== 'not_tracked' ? <><Minus size={16} /> Ne plus suivre</> : <><Plus size={16} /> Suivre la série</>}
                     </button>
                 </div>
 

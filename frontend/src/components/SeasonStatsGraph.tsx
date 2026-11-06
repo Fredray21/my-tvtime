@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '../context/ApiContext';
-import { ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BarChart2, Star } from 'lucide-react';
 import {
     LineChart,
     Line,
@@ -43,7 +43,7 @@ const CustomTooltip = ({ active, payload }: ChartTooltipProps) => {
                         {data.name}
                     </p>
                     <div className="flex items-center gap-1 text-amber-400 font-bold text-sm shrink-0">
-                        <span>⭐️</span> {data.rating.toFixed(1)}
+                        <Star size={14} fill="currentColor" /> {data.rating.toFixed(1)}
                     </div>
                 </div>
             </div>

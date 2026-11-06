@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, CheckCircle, Film, Heart, Star } from 'lucide-react';
+import { CalendarClock, Check, CheckCircle, Film, Heart, Star } from 'lucide-react';
 import { useApi } from '../../context/ApiContext';
 import { triggerVibration } from '../../utils/haptics';
 import type { SagaPart, SagaResponse } from '../../api/mediaApi';
@@ -159,7 +159,7 @@ export const SagaDetailsView = () => {
                     </div>
                     <p className="text-xs text-zinc-400 mt-3">
                         {saga.is_complete
-                            ? 'Saga terminée, bravo ✓'
+                            ? <span className="inline-flex items-center gap-1 text-emerald-400">Saga terminée, bravo <Check size={12} strokeWidth={3} /></span>
                             : saga.next_movie
                                 ? <>Prochain : <span className="text-white font-semibold">{saga.next_movie.title}</span></>
                                 : 'Pas encore commencée.'}

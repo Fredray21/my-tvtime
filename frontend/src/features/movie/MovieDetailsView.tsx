@@ -10,6 +10,7 @@ import { MediaTrailers } from '../../components/MediaTrailers';
 import { WatchProviders } from '../../components/WatchProviders';
 import { SagaProgress } from '../../components/SagaProgress';
 import { useConfirm } from '../../hooks/useConfirm';
+import { CheckCircle, Clock, Eye, Heart, Minus, Plus, Star } from 'lucide-react';
 
 export const MovieDetailsView = () => {
     const { id } = useParams<{ id: string }>();
@@ -145,7 +146,9 @@ export const MovieDetailsView = () => {
                         }}
                         className={`absolute top-4 right-4 flex items-center justify-center w-10 h-10 rounded-full text-white transition bg-black/40 hover:bg-black/60 aspect-square`}
                     >
-                        {movie.is_favorite ? '❤️' : '🤍'}
+                        {movie.is_favorite
+                            ? <Heart size={20} fill="currentColor" className="text-red-500" />
+                            : <Heart size={20} />}
                     </button>
                 }
             </div>
@@ -158,8 +161,8 @@ export const MovieDetailsView = () => {
 
                 <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-zinc-400 mb-6">
                     <span className="bg-zinc-800/80 px-2 py-1 rounded-md text-zinc-200">{year}</span>
-                    {formattedRuntime && <span>⏱ {formattedRuntime}</span>}
-                    {movie.vote_average !== undefined && movie.vote_average > 0 && <span className="text-amber-400">⭐️ {movie.vote_average.toFixed(1)}/10</span>}
+                    {formattedRuntime && <span className="inline-flex items-center gap-1"><Clock size={12} /> {formattedRuntime}</span>}
+                    {movie.vote_average !== undefined && movie.vote_average > 0 && <span className="inline-flex items-center gap-1 text-amber-400"><Star size={12} fill="currentColor" /> {movie.vote_average.toFixed(1)}/10</span>}
 
                     {/* Dates de visionnage */}
                     {movie.status_local === 'watched' && movie.created_at && (
@@ -193,9 +196,9 @@ export const MovieDetailsView = () => {
                                     });
                                     if (confirmed) changeStatus({ newStatus: 'not_tracked', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
                                 }}
-                                className="flex-[2] py-3 rounded-xl font-bold text-sm bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/30 transition-all"
+                                className="flex-[2] py-3 rounded-xl font-bold text-sm bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/30 transition-all flex items-center justify-center gap-2"
                             >
-                                ✅ Déjà vu
+                                <CheckCircle size={16} /> Déjà vu
                             </button>
 
                             {/* Bloc Compteur */}
@@ -261,12 +264,12 @@ export const MovieDetailsView = () => {
 
                                     changeStatus({ newStatus: newStatus, isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
                                 }}
-                                className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${movie.status_local === 'watchlist'
+                                className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${movie.status_local === 'watchlist'
                                     ? 'bg-purple-500 text-black hover:bg-purple-400'
                                     : 'bg-zinc-800 text-white hover:bg-zinc-700'
                                     }`}
                             >
-                                {movie.status_local === 'watchlist' ? '➖ Retirer' : '➕ À voir'}
+                                {movie.status_local === 'watchlist' ? <><Minus size={16} /> Retirer</> : <><Plus size={16} /> À voir</>}
                             </button>
 
                             <button
@@ -274,9 +277,9 @@ export const MovieDetailsView = () => {
                                     triggerVibration([20, 80, 50]);
                                     changeStatus({ newStatus: 'watched', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
                                 }}
-                                className="flex-1 py-3 rounded-xl font-bold text-sm bg-zinc-800 text-white hover:bg-zinc-700 transition-all"
+                                className="flex-1 py-3 rounded-xl font-bold text-sm bg-zinc-800 text-white hover:bg-zinc-700 transition-all flex items-center justify-center gap-2"
                             >
-                                👁️ Marquer vu
+                                <Eye size={16} /> Marquer vu
                             </button>
                         </>
                     )}

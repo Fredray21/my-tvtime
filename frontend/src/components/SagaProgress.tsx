@@ -69,7 +69,7 @@ export const SagaProgress: React.FC<SagaProgressProps> = ({ collectionId, curren
 
             <p className="text-xs text-zinc-400 mt-2">
                 {saga.is_complete
-                    ? 'Saga terminée ✓'
+                    ? <span className="inline-flex items-center gap-1 text-emerald-400">Saga terminée <Check size={12} strokeWidth={3} /></span>
                     : next
                         ? <>Prochain à voir : <span className="text-white font-semibold">{next.title}</span></>
                         : `${saga.released_count - saga.watched_count} film(s) restant(s)`}

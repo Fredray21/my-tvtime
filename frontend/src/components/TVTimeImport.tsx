@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isAxiosError } from 'axios';
 import { useApi } from '../context/ApiContext';
-import { Upload, Loader2, CheckCircle2, AlertTriangle, Film, Tv, ArrowRight } from 'lucide-react';
+import { Upload, Loader2, CheckCircle2, AlertTriangle, Film, Tv, ArrowRight, PartyPopper } from 'lucide-react';
 
 // Message d'erreur renvoyé par l'API ({ error: "..." }), sinon le message par défaut
 const apiErrorMessage = (err: unknown, fallback: string) =>
@@ -306,8 +306,8 @@ export const TVTimeImport: React.FC = () => {
                     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
                         <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
                             {/*Changement du titre du panneau */}
-                            <h3 className="font-bold text-lg">
-                                {importSuccess ? "Éléments ajoutés à votre profil 🎉" : "Éléments prêts à être importés"}
+                            <h3 className="font-bold text-lg flex items-center gap-2">
+                                {importSuccess ? <>Éléments ajoutés à votre profil <PartyPopper className="w-5 h-5 text-amber-400" /></> : "Éléments prêts à être importés"}
                             </h3>
                         </div>
 
@@ -320,13 +320,13 @@ export const TVTimeImport: React.FC = () => {
                                     </h4>
                                     <div className="flex flex-wrap gap-2 pl-2">
                                         {(analysis.tv.not_found || []).map((name, i) => (
-                                            <span key={`tv-nf-${i}`} className="bg-red-500/5 border border-red-500/10 text-red-400/80 text-xs px-2.5 py-1 rounded-full">
-                                                📺 {name}
+                                            <span key={`tv-nf-${i}`} className="inline-flex items-center gap-1.5 bg-red-500/5 border border-red-500/10 text-red-400/80 text-xs px-2.5 py-1 rounded-full">
+                                                <Tv className="w-3 h-3" /> {name}
                                             </span>
                                         ))}
                                         {(analysis.movies.not_found || []).map((name, i) => (
-                                            <span key={`movie-nf-${i}`} className="bg-red-500/5 border border-red-500/10 text-red-400/80 text-xs px-2.5 py-1 rounded-full">
-                                                🎬 {name}
+                                            <span key={`movie-nf-${i}`} className="inline-flex items-center gap-1.5 bg-red-500/5 border border-red-500/10 text-red-400/80 text-xs px-2.5 py-1 rounded-full">
+                                                <Film className="w-3 h-3" /> {name}
                                             </span>
                                         ))}
                                     </div>

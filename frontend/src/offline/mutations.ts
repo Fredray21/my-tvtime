@@ -31,7 +31,10 @@ const mutationMediaType = (vars: MediaMutationVars): 'movie' | 'tv' => {
 const mutationTmdbId = (vars: MediaMutationVars) => (vars.kind === 'status' ? vars.dto.tmdb_id : vars.tmdbId);
 
 export const registerOfflineMutations = (queryClient: QueryClient, media: MediaApi) => {
+    // scope : les actions d'un même type sont envoyées l'une après l'autre, dans l'ordre
+    // (ex : "vu" puis "Annuler" depuis le toast ne doivent pas se croiser sur le réseau)
     queryClient.setMutationDefaults(EPISODE_MUTATION_KEY, {
+        scope: { id: 'offline-episode' },
         mutationFn: (vars: EpisodeMutationVars) => {
             const { seriesId, seasonNumber, episodeNumber = 0 } = vars;
             switch (vars.action) {
@@ -52,6 +55,7 @@ export const registerOfflineMutations = (queryClient: QueryClient, media: MediaA
     });
 
     queryClient.setMutationDefaults(MEDIA_MUTATION_KEY, {
+        scope: { id: 'offline-media' },
         mutationFn: (vars: MediaMutationVars) => {
             switch (vars.kind) {
                 case 'remove': return media.removeMedia(vars.tmdbId, vars.mediaType);

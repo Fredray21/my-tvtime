@@ -9,6 +9,7 @@ import { OfflineNotice } from '../../offline/OfflineNotice';
 import { MediaTrailers } from '../../components/MediaTrailers';
 import { WatchProviders } from '../../components/WatchProviders';
 import { SagaProgress } from '../../components/SagaProgress';
+import { offlineHint, showToast } from '../../utils/toast';
 import { useConfirm } from '../../hooks/useConfirm';
 import { CheckCircle, Clock, Eye, Heart, Minus, Plus, Star } from 'lucide-react';
 
@@ -275,7 +276,14 @@ export const MovieDetailsView = () => {
                             <button
                                 onClick={() => {
                                     triggerVibration([20, 80, 50]);
-                                    changeStatus({ newStatus: 'watched', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
+                                    const previous = { newStatus: movie.status_local, isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count };
+                                    changeStatus({ newStatus: 'watched', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count });
+                                    showToast({
+                                        title: 'Vu !',
+                                        subtitle: offlineHint() ?? movie.title,
+                                        posterPath: movie.poster_path,
+                                        action: { label: 'Annuler', onClick: () => changeStatus(previous) },
+                                    });
                                 }}
                                 className="flex-1 py-3 rounded-xl font-bold text-sm bg-zinc-800 text-white hover:bg-zinc-700 transition-all flex items-center justify-center gap-2"
                             >

@@ -10,6 +10,7 @@ import { useLocalStorage } from '../../utils/useLocalStorage';
 import { triggerVibration } from '../../utils/haptics';
 import { Grid, List, Tv, Hourglass, PlayCircle, CheckCircle, Popcorn, Dices } from 'lucide-react';
 import { WatchlistPicker } from './WatchlistPicker';
+import { offlineHint, showToast } from '../../utils/toast';
 
 interface WatchlistViewProps {
     mediaType: 'movie' | 'tv';
@@ -79,6 +80,17 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         });
     };
 
+    // "Annuler" depuis le toast : le film revient en tête de "À voir", là où le serveur le placera aussi
+    // (la liste est triée par dernière modification), pour éviter qu'il ne saute au rechargement
+    const restoreWatchlistItem = (item: MediaCustomResponse) => {
+        queryClient.setQueryData<InfiniteData<WatchlistPaginatedResponse>>(watchlistKey, old => {
+            if (!old || old.pages.length === 0) return old;
+            if (old.pages.some(page => page.results.some(r => r.id === item.id))) return old;
+            const [first, ...rest] = old.pages;
+            return { ...old, pages: [{ ...first, results: [{ ...item, status_local: 'watchlist' }, ...first.results] }, ...rest] };
+        });
+    };
+
     const mediaMutation = useMutation<unknown, Error, MediaMutationVars>({
         mutationKey: MEDIA_MUTATION_KEY,
         onMutate: async (vars) => {
@@ -135,6 +147,17 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
     // Pas d'attente du serveur : hors ligne, l'action part dans la file et l'affichage est déjà à jour
     const handleWatchEpisode = (id: number, season: number, episode: number) => {
         episodeMutation.mutate({ seriesId: id, seasonNumber: season, episodeNumber: episode, action: 'watch' });
+
+        const series = uniqueData.find(item => item.id === id);
+        showToast({
+            title: `S${season} · E${episode} vu !`,
+            subtitle: offlineHint() ?? series?.name,
+            posterPath: series?.poster_path,
+            action: {
+                label: 'Annuler',
+                onClick: () => episodeMutation.mutate({ seriesId: id, seasonNumber: season, episodeNumber: episode, action: 'remove' }),
+            },
+        });
     };
 
     const handleStatusChange = (id: number, newStatus: UpdateStatusDTO['status_local']) => {
@@ -146,6 +169,26 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
             kind: 'status',
             dto: { tmdb_id: id, media_type: mediaType, status_local: newStatus, is_favorite: false, rewatch_count: 0 },
         });
+
+        if (newStatus === 'watched') {
+            const movie = uniqueData.find(item => item.id === id);
+            showToast({
+                title: 'Vu !',
+                subtitle: offlineHint() ?? movie?.title,
+                posterPath: movie?.poster_path,
+                action: {
+                    // Le film retourne dans "À voir" : affiché tout de suite, puis envoyé au serveur
+                    label: 'Annuler',
+                    onClick: () => {
+                        if (movie) restoreWatchlistItem(movie);
+                        mediaMutation.mutate({
+                            kind: 'status',
+                            dto: { tmdb_id: id, media_type: mediaType, status_local: 'watchlist', is_favorite: movie?.is_favorite ?? false, rewatch_count: movie?.rewatch_count ?? 0 },
+                        });
+                    },
+                },
+            });
+        }
     }
 
     return (

@@ -4,6 +4,7 @@ import { BottomNav } from './BottomNav';
 import { useApi } from '../context/ApiContext';
 import { syncPushSubscription } from '../utils/pushNotifications';
 import { OfflineBanner } from '../offline/OfflineBanner';
+import { Toaster } from './Toaster';
 
 interface AppLayoutProps {
     isOfflineMode?: boolean;
@@ -25,6 +26,7 @@ export const AppLayout = ({ isOfflineMode = false }: AppLayoutProps) => {
                 <Outlet />
             </main>
 
+            <Toaster />
             <BottomNav />
         </div>
     );

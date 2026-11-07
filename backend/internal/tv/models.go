@@ -53,6 +53,7 @@ type SeriesRecord struct {
 	Status               string
 	IsFavorite           bool
 	NotificationsEnabled bool // notifications push des nouveaux épisodes (désactivées par défaut)
+	UserRating           *int // note perso 1-10 (nil = pas notée)
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 }
@@ -83,4 +84,5 @@ type EpisodeRecord struct {
 type SeriesStatus struct {
 	Status     string
 	IsFavorite bool
+	UserRating *int
 }

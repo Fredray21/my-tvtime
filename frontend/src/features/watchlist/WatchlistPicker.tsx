@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Clock, Dices, Eye, RotateCcw, Sparkles, Star, X } from 'lucide-react';
+import { Clock, Dices, Eye, RotateCcw, Sparkles, Star, Tv, X } from 'lucide-react';
 import { useApi } from '../../context/ApiContext';
-import type { MediaCustomResponse } from '../../api/mediaApi';
+import type { MediaCustomResponse, WatchProvider } from '../../api/mediaApi';
+import { providerLogoUrl, useMyPlatforms } from '../../hooks/useMyPlatforms';
 import { triggerVibration } from '../../utils/haptics';
 
 interface WatchlistPickerProps {
@@ -85,6 +86,8 @@ export const WatchlistPicker: React.FC<WatchlistPickerProps> = ({ mediaType, onC
     const [duration, setDuration] = useState<DurationFilter>('any');
     const [tvFilter, setTvFilter] = useState<TvFilter>('any');
     const [genreId, setGenreId] = useState<number | null>(null);
+    const [onMyPlatforms, setOnMyPlatforms] = useState(false);
+    const { hasPlatforms, myProvidersFor } = useMyPlatforms();
 
     const [reel, setReel] = useState<MediaCustomResponse[]>([]);
     const [winner, setWinner] = useState<MediaCustomResponse | null>(null);
@@ -121,9 +124,16 @@ export const WatchlistPicker: React.FC<WatchlistPickerProps> = ({ mediaType, onC
             if (genreId !== null && !item.genres?.some(g => g.id === genreId)) return false;
             if (mediaType === 'movie' && maxRuntime !== Infinity && (!item.runtime || item.runtime > maxRuntime)) return false;
             if (mediaType === 'tv' && tvFilter !== 'any' && item.status_local !== tvFilter) return false;
+            if (onMyPlatforms && myProvidersFor(item.available_on).length === 0) return false;
             return true;
         });
-    }, [basePool, duration, genreId, tvFilter, mediaType]);
+    }, [basePool, duration, genreId, tvFilter, mediaType, onMyPlatforms, myProvidersFor]);
+
+    // Nombre de titres de la liste inclus dans mes abonnements (affiché sur le filtre)
+    const onPlatformsCount = useMemo(
+        () => basePool.filter(item => myProvidersFor(item.available_on).length > 0).length,
+        [basePool, myProvidersFor],
+    );
 
     // Fermeture : Échap + blocage du défilement de la page derrière
     useEffect(() => {
@@ -236,7 +246,7 @@ export const WatchlistPicker: React.FC<WatchlistPickerProps> = ({ mediaType, onC
                         Je parcours ta liste...
                     </div>
                 ) : phase === 'result' && winner ? (
-                    <WinnerReveal winner={winner} mediaType={mediaType} onRespin={spin} canRespin={pool.length > 1} />
+                    <WinnerReveal winner={winner} mediaType={mediaType} onRespin={spin} canRespin={pool.length > 1} myProviders={myProvidersFor(winner.available_on)} />
                 ) : (
                     <>
                         {/* Bande d'affiches */}
@@ -284,6 +294,15 @@ export const WatchlistPicker: React.FC<WatchlistPickerProps> = ({ mediaType, onC
                                     {TV_FILTERS.map(f => (
                                         <Chip key={f.id} active={tvFilter === f.id} onClick={() => setTvFilter(f.id)}>{f.label}</Chip>
                                     ))}
+                                </FilterGroup>
+                            )}
+
+                            {hasPlatforms && (
+                                <FilterGroup label="Où ?">
+                                    <Chip active={!onMyPlatforms} onClick={() => setOnMyPlatforms(false)}>Partout</Chip>
+                                    <Chip active={onMyPlatforms} onClick={() => setOnMyPlatforms(true)}>
+                                        <Tv size={12} /> Sur mes plateformes <span className="opacity-70 tabular-nums">({onPlatformsCount})</span>
+                                    </Chip>
                                 </FilterGroup>
                             )}
 
@@ -378,7 +397,8 @@ const WinnerReveal: React.FC<{
     mediaType: 'movie' | 'tv';
     onRespin: () => void;
     canRespin: boolean;
-}> = ({ winner, mediaType, onRespin, canRespin }) => {
+    myProviders: WatchProvider[];
+}> = ({ winner, mediaType, onRespin, canRespin, myProviders }) => {
     const title = winner.title || winner.name || 'Sans titre';
     const date = winner.release_date || winner.first_air_date;
     const year = date ? new Date(date).getFullYear() : null;
@@ -433,6 +453,14 @@ const WinnerReveal: React.FC<{
                         {winner.genres.slice(0, 3).map(g => (
                             <span key={g.id} className="px-2 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-300">{g.name}</span>
                         ))}
+                    </div>
+                )}
+                {myProviders.length > 0 && (
+                    <div className="flex items-center gap-1.5 mt-1 px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-[11px] font-semibold text-purple-200">
+                        {myProviders.slice(0, 3).map(p => (
+                            <img key={p.provider_id} src={providerLogoUrl(p.logo_path)} alt="" className="w-4 h-4 rounded" />
+                        ))}
+                        Inclus sur {myProviders.map(p => p.provider_name).join(', ')}
                     </div>
                 )}
                 {winner.overview && <p className="mt-1 text-sm text-zinc-400 line-clamp-2 [@media(min-height:760px)]:line-clamp-3 max-w-md">{winner.overview}</p>}

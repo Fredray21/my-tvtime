@@ -57,9 +57,10 @@ func main() {
 	tvHandler := tv.NewHandler(tvService)
 	userHandler := user.NewHandler(userService)
 	searchHandler := search.NewHandler(searchService)
-	discoverHandler := discover.NewHandler(discover.NewService(tmdbClient, movieService, tvService))
 	personHandler := person.NewHandler(personService)
-	providersHandler := providers.NewHandler(tmdbClient)
+	providersService := providers.NewService(providers.NewRepository(db), tmdbClient)
+	providersHandler := providers.NewHandler(tmdbClient, providersService)
+	discoverHandler := discover.NewHandler(discover.NewService(tmdbClient, movieService, tvService, providersService))
 	calendarService := calendar.NewService(calendar.NewRepository(db), tmdbClient)
 	calendarHandler := calendar.NewHandler(calendarService)
 
@@ -110,6 +111,7 @@ func main() {
 			movieRoutes.GET("/upcoming", movieHandler.HandleGetUpcomingMovies)
 			movieRoutes.GET("/:id/credits", movieHandler.HandlerGetMovieCredits)
 			movieRoutes.GET("/:id/providers", providersHandler.HandleGetProviders("movie"))
+			movieRoutes.PUT("/:id/rating", movieHandler.HandleSetRating)
 		}
 
 		tvRoutes := api.Group("/tvs")
@@ -125,6 +127,7 @@ func main() {
 			tvRoutes.GET("/:id/credits", tvHandler.HandlerGetSerieCredits)
 			tvRoutes.PUT("/:id/notifications", tvHandler.HandlerSetNotifications)
 			tvRoutes.GET("/:id/providers", providersHandler.HandleGetProviders("tv"))
+			tvRoutes.PUT("/:id/rating", tvHandler.HandlerSetRating)
 
 
 			// Épisodes et Saisons
@@ -151,6 +154,11 @@ func main() {
 		api.POST("/push/subscribe", notificationHandler.HandleSubscribe)
 		api.POST("/push/unsubscribe", notificationHandler.HandleUnsubscribe)
 		api.POST("/push/test", notificationHandler.HandleTest)
+
+		// Mes plateformes (abonnements streaming)
+		api.GET("/providers/catalog", providersHandler.HandleGetCatalog)
+		api.GET("/user/providers", providersHandler.HandleGetUserProviders)
+		api.PUT("/user/providers", providersHandler.HandleSetUserProviders)
 
 		// Person
 		api.GET("/persons/:id", personHandler.HandleGetDetails)

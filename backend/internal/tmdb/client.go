@@ -69,7 +69,7 @@ func (c *Client) SearchTVShow(title string) ([]byte, error) {
 
 // GetMovieDetails récupère les infos complètes d'un film (synopsis, note, poster...)
 func (c *Client) GetMovieDetails(tmdbMovieID int) ([]byte, error) {
-	reqURL := fmt.Sprintf("%s/movie/%d?api_key=%s&language=fr-FR&include_video_language=fr,en&append_to_response=videos", c.baseURL, tmdbMovieID, c.apiKey)
+	reqURL := fmt.Sprintf("%s/movie/%d?api_key=%s&language=fr-FR&include_video_language=fr,en&append_to_response=videos,watch/providers", c.baseURL, tmdbMovieID, c.apiKey)
 	return c.get(reqURL)
 }
 
@@ -86,7 +86,7 @@ func (c *Client) GetSeriesTotalEpisodes(ctx context.Context, tmdbSeriesID int) (
 
 // GetSeriesDetails renvoie le JSON brut des détails d'une série
 func (c *Client) GetSeriesDetails(seriesID int) ([]byte, error) {
-	reqURL := fmt.Sprintf("%s/tv/%d?api_key=%s&language=fr-FR&include_video_language=fr,en&append_to_response=videos", c.baseURL, seriesID, c.apiKey)
+	reqURL := fmt.Sprintf("%s/tv/%d?api_key=%s&language=fr-FR&include_video_language=fr,en&append_to_response=videos,watch/providers", c.baseURL, seriesID, c.apiKey)
 	return c.get(reqURL)
 }
 
@@ -126,6 +126,12 @@ func (c *Client) GetPersonDetails(personID int, language string) ([]byte, error)
 // GetWatchProviders récupère les plateformes (streaming, location, achat) d'un film ou d'une série, tous pays confondus
 func (c *Client) GetWatchProviders(mediaType string, tmdbID int) ([]byte, error) {
 	url := fmt.Sprintf("%s/%s/%d/watch/providers?api_key=%s", c.baseURL, mediaType, tmdbID, c.apiKey)
+	return c.get(url)
+}
+
+// GetProviderCatalog liste les plateformes proposant des films (ou des séries) dans un pays
+func (c *Client) GetProviderCatalog(mediaType string, region string) ([]byte, error) {
+	url := fmt.Sprintf("%s/watch/providers/%s?api_key=%s&language=fr-FR&watch_region=%s", c.baseURL, mediaType, c.apiKey, region)
 	return c.get(url)
 }
 

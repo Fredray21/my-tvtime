@@ -46,15 +46,17 @@ func (r *Repository) SaveSeriesStatus(userID string, tmdbSeriesID int, status st
 // GetSeriesStatus : Récupère le statut d'une série spécifique pour un utilisateur donné
 func (r *Repository) GetSeriesStatus(userID string, tmdbSeriesID int) (*SeriesRecord, error) {
 	query := `
-		SELECT id, user_id, tmdb_series_id, status, is_favorite, notifications_enabled, created_at, updated_at
+		SELECT id, user_id, tmdb_series_id, status, is_favorite, notifications_enabled, user_rating, created_at, updated_at
 		FROM user_series 
 		WHERE user_id = $1 AND tmdb_series_id = $2
 	`
 	var series SeriesRecord
+	var rating sql.NullInt64
 	err := r.db.QueryRow(query, userID, tmdbSeriesID).Scan(
 		&series.ID, &series.UserID, &series.TMDBSeriesID,
-		&series.Status, &series.IsFavorite, &series.NotificationsEnabled, &series.CreatedAt, &series.UpdatedAt,
+		&series.Status, &series.IsFavorite, &series.NotificationsEnabled, &rating, &series.CreatedAt, &series.UpdatedAt,
 	)
+	series.UserRating = nullIntPtr(rating)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -149,6 +151,26 @@ func (r *Repository) SetSeriesNotifications(userID string, tmdbSeriesID int, ena
 	return nil
 }
 
+// SetSeriesRating : note perso (nil pour l'effacer). La série doit être suivie.
+func (r *Repository) SetSeriesRating(userID string, tmdbSeriesID int, rating *int) error {
+	result, err := r.db.Exec(`UPDATE user_series SET user_rating = $3 WHERE user_id = $1 AND tmdb_series_id = $2`, userID, tmdbSeriesID, rating)
+	if err != nil {
+		return err
+	}
+	if n, err := result.RowsAffected(); err == nil && n == 0 {
+		return ErrSeriesNotTracked
+	}
+	return nil
+}
+
+func nullIntPtr(v sql.NullInt64) *int {
+	if !v.Valid {
+		return nil
+	}
+	n := int(v.Int64)
+	return &n
+}
+
 func (r *Repository) DeleteSeries(userID string, tmdbSeriesID int) error {
 	query := `DELETE FROM user_series WHERE user_id = $1 AND tmdb_series_id = $2`
 	result, err := r.db.Exec(query, userID, tmdbSeriesID)
@@ -174,8 +196,8 @@ func (r *Repository) GetUserStatusesForSeries(userID string, tmdbIDs []int) (map
 	}
 
 	query := `
-		SELECT tmdb_series_id, status, is_favorite 
-		FROM user_series 
+		SELECT tmdb_series_id, status, is_favorite, user_rating
+		FROM user_series
 		WHERE user_id = $1 AND tmdb_series_id = ANY($2)
 	`
 
@@ -189,10 +211,12 @@ func (r *Repository) GetUserStatusesForSeries(userID string, tmdbIDs []int) (map
 	for rows.Next() {
 		var tmdbID int
 		var ms SeriesStatus
-		err := rows.Scan(&tmdbID, &ms.Status, &ms.IsFavorite)
+		var rating sql.NullInt64
+		err := rows.Scan(&tmdbID, &ms.Status, &ms.IsFavorite, &rating)
 		if err != nil {
 			return nil, err
 		}
+		ms.UserRating = nullIntPtr(rating)
 		results[tmdbID] = ms
 	}
 

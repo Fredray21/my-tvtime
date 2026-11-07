@@ -9,6 +9,7 @@ import { OfflineNotice } from '../../offline/OfflineNotice';
 import { MediaTrailers } from '../../components/MediaTrailers';
 import { WatchProviders } from '../../components/WatchProviders';
 import { SagaProgress } from '../../components/SagaProgress';
+import { PersonalRating } from '../../components/RatingStars';
 import { offlineHint, showToast } from '../../utils/toast';
 import { useConfirm } from '../../hooks/useConfirm';
 import { CheckCircle, Clock, Eye, Heart, Minus, Plus, Star } from 'lucide-react';
@@ -52,6 +53,11 @@ export const MovieDetailsView = () => {
             if (vars.kind === 'notifications') return {}; // réglage propre aux séries
             await queryClient.cancelQueries({ queryKey: movieKey });
             const previousMovie = queryClient.getQueryData<MediaCustomResponse>(movieKey);
+
+            if (vars.kind === 'rating') {
+                queryClient.setQueryData<MediaCustomResponse>(movieKey, old => old && { ...old, user_rating: vars.rating });
+                return { previousMovie };
+            }
 
             queryClient.setQueryData<MediaCustomResponse>(movieKey, (old) => {
                 if (!old) return old;
@@ -292,6 +298,14 @@ export const MovieDetailsView = () => {
                         </>
                     )}
                 </div>
+
+                {/* Note perso (une fois le film vu) */}
+                {movie.status_local === 'watched' && (
+                    <PersonalRating
+                        value={movie.user_rating}
+                        onChange={rating => mediaMutation.mutate({ kind: 'rating', tmdbId: movieId, mediaType, rating })}
+                    />
+                )}
 
                 {/* Où regarder */}
                 <WatchProviders id={movieId} mediaType={mediaType} />

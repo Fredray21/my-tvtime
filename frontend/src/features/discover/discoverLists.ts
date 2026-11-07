@@ -6,12 +6,16 @@ export interface DiscoverListDef {
     title: string;
     // Classement affiché avec de grands numéros (Top 10)
     ranked?: boolean;
+    // Affichée seulement si l'utilisateur a choisi ses plateformes
+    requiresPlatforms?: boolean;
 }
 
 // Rangées de la page Découvrir, dans l'ordre d'affichage
 export const DISCOVER_LISTS: DiscoverListDef[] = [
     { mediaType: 'movie', list: 'trending', title: 'Films tendance de la semaine', ranked: true },
     { mediaType: 'tv', list: 'trending', title: 'Séries tendance de la semaine', ranked: true },
+    { mediaType: 'movie', list: 'my_platforms', title: 'Films sur tes plateformes', requiresPlatforms: true },
+    { mediaType: 'tv', list: 'my_platforms', title: 'Séries sur tes plateformes', requiresPlatforms: true },
     { mediaType: 'movie', list: 'now_playing', title: 'En ce moment au cinéma' },
     { mediaType: 'movie', list: 'upcoming', title: 'Bientôt au cinéma' },
     { mediaType: 'tv', list: 'on_the_air', title: 'Nouveaux épisodes cette semaine' },

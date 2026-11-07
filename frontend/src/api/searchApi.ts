@@ -28,8 +28,9 @@ export interface PagedSearchResponse {
 }
 
 // --- DÉCOUVERTE (tendances, au cinéma, populaires...) ---
-export type DiscoverMovieList = 'trending' | 'now_playing' | 'upcoming' | 'popular' | 'top_rated';
-export type DiscoverTvList = 'trending' | 'popular' | 'on_the_air' | 'top_rated';
+// my_platforms : populaires sur les plateformes choisies dans "Mes plateformes"
+export type DiscoverMovieList = 'trending' | 'now_playing' | 'upcoming' | 'popular' | 'top_rated' | 'my_platforms';
+export type DiscoverTvList = 'trending' | 'popular' | 'on_the_air' | 'top_rated' | 'my_platforms';
 export type DiscoverList = DiscoverMovieList | DiscoverTvList;
 
 export interface DiscoverItem extends SearchResultBase {

@@ -3,8 +3,11 @@ package discover
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/Fredray21/my-tvtime/internal/movie"
+	"github.com/Fredray21/my-tvtime/internal/providers"
 	"github.com/Fredray21/my-tvtime/internal/tmdb"
 	"github.com/Fredray21/my-tvtime/internal/tv"
 )
@@ -26,13 +29,31 @@ var lists = map[string]map[string]tmdbList{
 		"upcoming":    {path: "movie/upcoming", query: "region=FR"},
 		"popular":     {path: "movie/popular", query: "region=FR"},
 		"top_rated":   {path: "movie/top_rated"},
+		// Populaires sur les plateformes de l'utilisateur (paramètres ajoutés à la volée)
+		MyPlatformsList: {path: "discover/movie"},
 	},
 	"tv": {
-		"trending":   {path: "trending/tv/week"},
-		"popular":    {path: "tv/popular"},
-		"on_the_air": {path: "tv/on_the_air"},
-		"top_rated":  {path: "tv/top_rated"},
+		"trending":      {path: "trending/tv/week"},
+		"popular":       {path: "tv/popular"},
+		"on_the_air":    {path: "tv/on_the_air"},
+		"top_rated":     {path: "tv/top_rated"},
+		MyPlatformsList: {path: "discover/tv"},
 	},
+}
+
+// MyPlatformsList : liste "Sur tes plateformes", construite à partir de "Mes plateformes"
+const MyPlatformsList = "my_platforms"
+
+// myPlatformsQuery : titres inclus dans l'abonnement (pas la location / l'achat) sur les plateformes choisies
+func myPlatformsQuery(providerIDs []int) string {
+	ids := make([]string, len(providerIDs))
+	for i, id := range providerIDs {
+		ids[i] = strconv.Itoa(id)
+	}
+	return "watch_region=" + providers.Region +
+		"&with_watch_providers=" + strings.Join(ids, "|") +
+		"&with_watch_monetization_types=flatrate|free|ads" +
+		"&sort_by=popularity.desc&vote_count.gte=50"
 }
 
 // IsValidList indique si le couple (type, liste) est géré
@@ -50,13 +71,14 @@ type PagedResponse[T any] struct {
 }
 
 type Service struct {
-	tmdbClient   *tmdb.Client
-	movieService *movie.MovieService
-	tvService    *tv.TVService
+	tmdbClient       *tmdb.Client
+	movieService     *movie.MovieService
+	tvService        *tv.TVService
+	providersService *providers.Service
 }
 
-func NewService(tmdbClient *tmdb.Client, movieSvc *movie.MovieService, tvSvc *tv.TVService) *Service {
-	return &Service{tmdbClient: tmdbClient, movieService: movieSvc, tvService: tvSvc}
+func NewService(tmdbClient *tmdb.Client, movieSvc *movie.MovieService, tvSvc *tv.TVService, providersSvc *providers.Service) *Service {
+	return &Service{tmdbClient: tmdbClient, movieService: movieSvc, tvService: tvSvc, providersService: providersSvc}
 }
 
 // GetList renvoie une page d'une liste de découverte, enrichie avec le statut de l'utilisateur
@@ -69,7 +91,23 @@ func (s *Service) GetList(userID, mediaType, list string, page int) (interface{}
 		page = maxTMDBPage
 	}
 
-	body, err := s.tmdbClient.GetList(def.path, def.query, page)
+	query := def.query
+	if list == MyPlatformsList {
+		ids, err := s.providersService.MatchIDs(userID)
+		if err != nil {
+			return nil, err
+		}
+		if len(ids) == 0 {
+			// Aucune plateforme choisie : liste vide (le front propose alors de les choisir)
+			if mediaType == "movie" {
+				return newPaged([]movie.MovieCustomResponse{}, page, 0), nil
+			}
+			return newPaged([]tv.SeriesCustomResponse{}, page, 0), nil
+		}
+		query = myPlatformsQuery(ids)
+	}
+
+	body, err := s.tmdbClient.GetList(def.path, query, page)
 	if err != nil {
 		return nil, err
 	}

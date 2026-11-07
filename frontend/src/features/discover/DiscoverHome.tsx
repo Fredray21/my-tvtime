@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, Flame, Star } from 'lucide-react';
+import { ChevronRight, Flame, Star, Tv } from 'lucide-react';
 import { useApi } from '../../context/ApiContext';
+import { useMyPlatforms } from '../../hooks/useMyPlatforms';
 import { MediaCard } from '../../components/MediaCard';
 import type { DiscoverItem } from '../../api/searchApi';
 import { DISCOVER_LISTS, type DiscoverListDef } from './discoverLists';
@@ -14,18 +15,39 @@ interface DiscoverHomeProps {
 
 // Page affichée sous la barre de recherche tant qu'aucune recherche n'est tapée
 export const DiscoverHome: React.FC<DiscoverHomeProps> = ({ filter }) => {
-    const rows = DISCOVER_LISTS.filter(def => filter === 'all' || def.mediaType === filter);
+    const { hasPlatforms, isLoading: isPlatformsLoading } = useMyPlatforms();
+    const rows = DISCOVER_LISTS.filter(def => (filter === 'all' || def.mediaType === filter) && (!def.requiresPlatforms || hasPlatforms));
     const heroType = filter === 'tv' ? 'tv' : 'movie';
 
     return (
         <div className="flex flex-col gap-9">
             <TrendingHero key={heroType} mediaType={heroType} />
-            {rows.map(def => (
-                <DiscoverRow key={`${def.mediaType}-${def.list}`} def={def} />
+            {rows.map((def, i) => (
+                <React.Fragment key={`${def.mediaType}-${def.list}`}>
+                    <DiscoverRow def={def} />
+                    {/* Invitation à choisir ses plateformes, à la place de leurs rangées */}
+                    {i === 1 && !hasPlatforms && !isPlatformsLoading && <PlatformsPrompt />}
+                </React.Fragment>
             ))}
         </div>
     );
 };
+
+const PlatformsPrompt = () => (
+    <Link
+        to="/settings"
+        className="flex items-center gap-3 p-4 rounded-2xl border border-purple-500/25 bg-purple-500/10 hover:bg-purple-500/15 transition-colors"
+    >
+        <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 flex-shrink-0">
+            <Tv size={20} />
+        </span>
+        <span className="flex-1 min-w-0">
+            <span className="block text-sm font-bold text-zinc-100">Quelles plateformes as-tu ?</span>
+            <span className="block text-xs text-zinc-400">Choisis tes abonnements pour voir ce qui y est inclus, partout dans l'app.</span>
+        </span>
+        <ChevronRight size={18} className="text-zinc-500 flex-shrink-0" />
+    </Link>
+);
 
 // --- Bandeau : top 5 des tendances, qui défile tout seul ---
 const HERO_COUNT = 5;

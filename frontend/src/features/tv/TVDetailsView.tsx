@@ -11,6 +11,7 @@ import { MEDIA_MUTATION_KEY, type MediaMutationVars } from '../../offline/mutati
 import { OfflineNotice } from '../../offline/OfflineNotice';
 import { MediaTrailers } from '../../components/MediaTrailers';
 import { WatchProviders } from '../../components/WatchProviders';
+import { PersonalRating } from '../../components/RatingStars';
 import { useConfirm } from '../../hooks/useConfirm';
 import { SeasonStatsGraph } from '../../components/SeasonStatsGraph';
 
@@ -67,6 +68,10 @@ export const TVDetailsView = () => {
                 queryClient.setQueryData<MediaCustomResponse>(seriesKey, old => old && { ...old, notifications_enabled: vars.enabled });
                 return { previousSeries };
             }
+            if (vars.kind === 'rating') {
+                queryClient.setQueryData<MediaCustomResponse>(seriesKey, old => old && { ...old, user_rating: vars.rating });
+                return { previousSeries };
+            }
 
             queryClient.setQueryData<MediaCustomResponse>(seriesKey, (old) => {
                 if (!old) return old;
@@ -74,6 +79,8 @@ export const TVDetailsView = () => {
                     ...old,
                     status_local: isUnfollow ? 'not_tracked' : vars.dto.status_local,
                     is_favorite: isUnfollow ? false : vars.dto.is_favorite,
+                    // Ne plus suivre efface aussi la note
+                    user_rating: isUnfollow ? null : old.user_rating,
                     // Ne plus suivre supprime aussi le réglage des notifications
                     notifications_enabled: isUnfollow ? false : old.notifications_enabled,
                     // "Ne plus suivre" efface l'historique : tous les compteurs de saisons repassent à 0
@@ -218,6 +225,14 @@ export const TVDetailsView = () => {
                         {series.status_local && series.status_local !== 'not_tracked' ? <><Minus size={16} /> Ne plus suivre</> : <><Plus size={16} /> Suivre la série</>}
                     </button>
                 </div>
+
+                {/* Note perso (dès qu'on a commencé la série) */}
+                {(series.status_local === 'watching' || series.status_local === 'pending' || series.status_local === 'finished') && (
+                    <PersonalRating
+                        value={series.user_rating}
+                        onChange={rating => mediaMutation.mutate({ kind: 'rating', tmdbId: seriesId, mediaType, rating })}
+                    />
+                )}
 
                 {/* Où regarder */}
                 <WatchProviders id={seriesId} mediaType={mediaType} />

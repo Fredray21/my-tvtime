@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Heart, CheckCircle, Check, CalendarClock, Loader, Bookmark, Play } from 'lucide-react';
 import { triggerVibration } from '../utils/haptics';
+import { providerLogoUrl, useMyPlatforms } from '../hooks/useMyPlatforms';
+import type { WatchProvider } from '../api/mediaApi';
 
 // Ce qu'une carte sait afficher : films / séries (watchlist, recherche, favoris...) et personnes (recherche)
 export interface MediaCardItem {
@@ -20,6 +22,8 @@ export interface MediaCardItem {
     next_season_number?: number;
     next_episode_number?: number;
     next_episode_to_air?: { air_date?: string } | null;
+    // Plateformes incluses en France (absent dans les listes TMDB)
+    available_on?: WatchProvider[];
 }
 
 interface MediaCardProps {
@@ -76,6 +80,17 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [justDone, setJustDone] = useState(false);
+
+    // Logos de mes plateformes qui incluent ce titre (2 max pour rester lisible)
+    const { myProvidersFor } = useMyPlatforms();
+    const myProviders = isPerson ? [] : myProvidersFor(item.available_on).slice(0, 2);
+    const platformLogos = myProviders.length > 0 && (
+        <span className="flex -space-x-1" title={`Inclus : ${myProviders.map(p => p.provider_name).join(', ')}`}>
+            {myProviders.map(p => (
+                <img key={p.provider_id} src={providerLogoUrl(p.logo_path)} alt={p.provider_name} className="w-[18px] h-[18px] rounded-[5px] ring-1 ring-black/60 object-cover" loading="lazy" />
+            ))}
+        </span>
+    );
 
     const nextSeason = item.next_season_number ?? 0;
     const nextEpisode = item.next_episode_number ?? 0;
@@ -175,6 +190,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                         {/* Conteneur pour l'année ET le badge J-XXX */}
                         <div className="flex items-center gap-2 mt-0.5">
                             {year && !nextEpisode && <p className="text-xs text-zinc-500">{year}</p>}
+                            {platformLogos}
 
                             {/* AJOUT DU TAG J-XXX ICI */}
                             {daysLeft !== null && (
@@ -283,7 +299,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 />
 
                 {/* Dégradé discret pour la lisibilité des pastilles */}
-                {(hasQuickAction || daysLeft !== null) && (
+                {(hasQuickAction || daysLeft !== null || platformLogos) && (
                     <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
                 )}
 
@@ -305,20 +321,23 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                     )}
                 </div>
 
-                {/* Bas : prochain épisode + action rapide */}
-                {hasQuickAction && (
-                    <div className="absolute bottom-1.5 inset-x-1.5 flex items-end justify-between gap-1">
-                        {canMarkEpisode ? (
-                            <span className="bg-black/60 backdrop-blur-md text-white px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums">
-                                S{nextSeason} · E{nextEpisode}
-                            </span>
-                        ) : <span />}
-                        <button
+                {/* Bas : mes plateformes, prochain épisode + action rapide */}
+                {(hasQuickAction || platformLogos) && (
+                    <div className="absolute bottom-1.5 inset-x-1.5 flex items-end justify-between gap-1 pointer-events-none">
+                        <span className="flex flex-col items-start gap-1">
+                            {platformLogos}
+                            {canMarkEpisode && (
+                                <span className="bg-black/60 backdrop-blur-md text-white px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums">
+                                    S{nextSeason} · E{nextEpisode}
+                                </span>
+                            )}
+                        </span>
+                        {hasQuickAction && <button
                             type="button"
                             onClick={handleQuickAction}
                             disabled={isProcessing}
                             aria-label={canMarkEpisode ? `Marquer S${nextSeason}E${nextEpisode} comme vu` : 'Marquer comme vu'}
-                            className={`flex items-center justify-center w-8 h-8 rounded-full backdrop-blur-md transition-all duration-300 active:scale-90 ${justDone
+                            className={`pointer-events-auto flex items-center justify-center w-8 h-8 rounded-full backdrop-blur-md transition-all duration-300 active:scale-90 ${justDone
                                 ? 'bg-emerald-500 text-black scale-110 shadow-lg shadow-emerald-500/40'
                                 : 'bg-black/55 text-white/90 ring-1 ring-white/20 hover:bg-emerald-500 hover:text-black hover:ring-emerald-400'
                                 }`}
@@ -326,7 +345,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                             {isProcessing && !justDone
                                 ? <Loader size={14} className="animate-spin" />
                                 : <Check size={16} strokeWidth={3} />}
-                        </button>
+                        </button>}
                     </div>
                 )}
             </div>

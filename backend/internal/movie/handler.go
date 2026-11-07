@@ -1,6 +1,7 @@
 package movie
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -46,6 +47,36 @@ func (h *Handler) HandleUpdateStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Statut mis à jour avec succès"})
+}
+
+// PUT /api/v1/movies/:id/rating  { "rating": 1..10 | null }
+func (h *Handler) HandleSetRating(c *gin.Context) {
+	userID, exists := c.Get("clerkUserID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Utilisateur non authentifié"})
+		return
+	}
+	tmdbMovieID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID de film TMDB invalide"})
+		return
+	}
+	var req struct {
+		Rating *int `json:"rating"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON invalide"})
+		return
+	}
+	if err := h.service.SetMovieRating(userID.(string), tmdbMovieID, req.Rating); err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, ErrNotTracked) {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user_rating": req.Rating})
 }
 
 // 3. DELETE /api/movies/:id

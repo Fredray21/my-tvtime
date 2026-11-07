@@ -20,11 +20,12 @@ export interface EpisodeMutationVars {
 export type MediaMutationVars =
     | { kind: 'status'; dto: UpdateStatusDTO }
     | { kind: 'remove'; tmdbId: number; mediaType: 'movie' | 'tv' }
-    | { kind: 'notifications'; tmdbId: number; enabled: boolean };
+    | { kind: 'notifications'; tmdbId: number; enabled: boolean }
+    | { kind: 'rating'; tmdbId: number; mediaType: 'movie' | 'tv'; rating: number | null };
 
 const mutationMediaType = (vars: MediaMutationVars): 'movie' | 'tv' => {
     if (vars.kind === 'status') return vars.dto.media_type;
-    if (vars.kind === 'remove') return vars.mediaType;
+    if (vars.kind === 'remove' || vars.kind === 'rating') return vars.mediaType;
     return 'tv';
 };
 
@@ -60,6 +61,7 @@ export const registerOfflineMutations = (queryClient: QueryClient, media: MediaA
             switch (vars.kind) {
                 case 'remove': return media.removeMedia(vars.tmdbId, vars.mediaType);
                 case 'notifications': return media.setSeriesNotifications(vars.tmdbId, vars.enabled);
+                case 'rating': return media.setRating(vars.tmdbId, vars.mediaType, vars.rating);
                 default: return media.updateStatus(vars.dto);
             }
         },
@@ -69,6 +71,14 @@ export const registerOfflineMutations = (queryClient: QueryClient, media: MediaA
             if (vars.kind === 'notifications') {
                 // Seule la fiche de la série affiche la cloche
                 queryClient.invalidateQueries({ queryKey: ['tv', tmdbId] });
+                return;
+            }
+            if (vars.kind === 'rating') {
+                // La note n'affecte ni les stats ni le calendrier : fiche + listes qui l'affichent
+                queryClient.invalidateQueries({ queryKey: mediaType === 'movie' ? ['movie', 'movie', tmdbId] : ['tv', tmdbId] });
+                queryClient.invalidateQueries({ queryKey: ['watchlist', mediaType] });
+                queryClient.invalidateQueries({ queryKey: ['favorites', mediaType] });
+                queryClient.invalidateQueries({ queryKey: ['latestMedias', mediaType] });
                 return;
             }
             queryClient.invalidateQueries({ queryKey: mediaType === 'movie' ? ['movie', 'movie', tmdbId] : ['tv', tmdbId] });

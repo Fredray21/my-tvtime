@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useApi } from '../../context/ApiContext';
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { MediaCard } from '../../components/MediaCard';
 import type { MediaCustomResponse, UpdateStatusDTO, WatchlistPaginatedResponse } from '../../api/mediaApi';
 import { EPISODE_MUTATION_KEY, MEDIA_MUTATION_KEY, type EpisodeMutationVars, type MediaMutationVars } from '../../offline/mutations';
@@ -8,7 +8,8 @@ import { OfflineNotice } from '../../offline/OfflineNotice';
 import { UpcomingCalendar } from '../../components/UpcomingCalendar';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 import { triggerVibration } from '../../utils/haptics';
-import { Grid, List, Tv, Hourglass, PlayCircle, CheckCircle, Popcorn } from 'lucide-react';
+import { Grid, List, Tv, Hourglass, PlayCircle, CheckCircle, Popcorn, Dices } from 'lucide-react';
+import { WatchlistPicker } from './WatchlistPicker';
 
 interface WatchlistViewProps {
     mediaType: 'movie' | 'tv';
@@ -26,7 +27,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         mediaType === 'tv' ? 'watchlist_view_mode_tv' : 'watchlist_view_mode_movie',
         'card'
     );
-
+    const [isPickerOpen, setIsPickerOpen] = useState(false);
 
     const {
         data,
@@ -155,12 +156,24 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                         <h1 className="text-2xl font-bold tracking-tight">
                             {mediaType === 'movie' ? 'Mes Films' : 'Mes Séries'}
                         </h1>
-                        <button
-                            onClick={() => { triggerVibration([10]); setViewMode(prev => prev === 'card' ? 'list' : 'card'); }}
-                            className="p-2 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
-                        >
-                            {viewMode === 'card' ? <List size={20} /> : <Grid size={20} />}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {displayData.length > 0 && (
+                                <button
+                                    onClick={() => { triggerVibration([15, 30, 15]); setIsPickerOpen(true); }}
+                                    className="group flex items-center gap-1.5 pl-3 pr-3.5 py-2 bg-purple-500/10 border border-purple-500/30 rounded-full text-purple-300 text-xs font-bold hover:bg-purple-500/20 hover:text-purple-200 transition-colors"
+                                >
+                                    <Dices size={16} className="transition-transform duration-500 group-hover:rotate-[360deg]" />
+                                    Je choisis pour toi
+                                </button>
+                            )}
+                            <button
+                                onClick={() => { triggerVibration([10]); setViewMode(prev => prev === 'card' ? 'list' : 'card'); }}
+                                className="p-2 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
+                                aria-label="Changer la vue"
+                            >
+                                {viewMode === 'card' ? <List size={20} /> : <Grid size={20} />}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex bg-zinc-900 rounded-xl p-1 mb-4">
@@ -230,6 +243,8 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                     </div>
                 )}
             </div>
+
+            {isPickerOpen && <WatchlistPicker mediaType={mediaType} onClose={() => setIsPickerOpen(false)} />}
         </div>
     );
 };

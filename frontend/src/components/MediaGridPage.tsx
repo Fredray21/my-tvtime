@@ -4,12 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, List, Grid } from 'lucide-react';
 import { useLocalStorage } from '../utils/useLocalStorage';
 import { triggerVibration } from '../utils/haptics';
-import { MediaCard } from './MediaCard';
-import type { MediaCustomResponse } from '../api/mediaApi';
+import { MediaCard, type MediaCardItem } from './MediaCard';
 import { OfflineNotice } from '../offline/OfflineNotice';
 
 // Les listes simples (favoris) renvoient un tableau, les listes paginées (historique) un objet { results }
-type MediaGridPageResult = MediaCustomResponse[] | { results: MediaCustomResponse[]; page: number; has_next_page: boolean };
+type MediaGridPageResult = MediaCardItem[] | { results: MediaCardItem[]; page: number; has_next_page: boolean };
 
 interface MediaGridPageProps {
     title: string;
@@ -20,6 +19,8 @@ interface MediaGridPageProps {
     queryFn: ({ pageParam }: { pageParam: number }) => Promise<MediaGridPageResult>;
     emptyTitle: string;
     emptyDescription: string;
+    // Pastille "Vu / Dans ta liste" sur les cartes (listes de découverte)
+    showStatusBadge?: boolean;
 }
 
 export const MediaGridPage: React.FC<MediaGridPageProps> = ({ 
@@ -29,7 +30,8 @@ export const MediaGridPage: React.FC<MediaGridPageProps> = ({
     queryKey, 
     queryFn,
     emptyTitle,
-    emptyDescription
+    emptyDescription,
+    showStatusBadge = false
 }) => {
     const navigate = useNavigate();
     // Reprise exacte de ton système de vue (card/list)
@@ -83,7 +85,7 @@ export const MediaGridPage: React.FC<MediaGridPageProps> = ({
             <div className="max-w-4xl mx-auto">
                 
                 {/* HEADER */}
-                <div className="flex items-center justify-between mb-8 sticky top-0 bg-zinc-950/90 backdrop-blur-md py-4 z-10 border-b border-zinc-900/50">
+                <div className="flex items-center justify-between mb-8 sticky top-0 bg-zinc-950/90 backdrop-blur-md py-4 z-30 border-b border-zinc-900/50">
                     <div className="flex items-center gap-4">
                         <button 
                             onClick={() => navigate(-1)}
@@ -139,6 +141,7 @@ export const MediaGridPage: React.FC<MediaGridPageProps> = ({
                                 item={item}
                                 fallbackMediaType={mediaType}
                                 layout={viewMode}
+                                showStatusBadge={showStatusBadge}
                             />
                         ))}
                     </div>

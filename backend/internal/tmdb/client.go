@@ -141,6 +141,16 @@ func (c *Client) GetMovieReleaseDates(tmdbMovieID int) ([]byte, error) {
 	return c.get(url)
 }
 
+// GetList récupère une liste de découverte TMDB paginée (ex : "trending/movie/week", "movie/now_playing").
+// extraQuery permet d'ajouter des paramètres (ex : "region=FR").
+func (c *Client) GetList(path string, extraQuery string, page int) ([]byte, error) {
+	reqURL := fmt.Sprintf("%s/%s?api_key=%s&language=fr-FR&page=%d", c.baseURL, path, c.apiKey, page)
+	if extraQuery != "" {
+		reqURL += "&" + extraQuery
+	}
+	return c.get(reqURL)
+}
+
 func (c *Client) get(reqURL string) ([]byte, error) {
 	if cachedData, found := c.memCache.Get(reqURL); found {
 		return cachedData.([]byte), nil // Trouvé ! On renvoie instantanément

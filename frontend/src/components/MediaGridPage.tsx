@@ -1,7 +1,7 @@
 import React, { useCallback, useRef } from 'react';
 import { useInfiniteQuery, type QueryKey } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, List, Grid } from 'lucide-react';
+import { ArrowLeft, List, Grid, ChevronDown } from 'lucide-react';
 import { useLocalStorage } from '../utils/useLocalStorage';
 import { triggerVibration } from '../utils/haptics';
 import { MediaCard, type MediaCardItem } from './MediaCard';
@@ -159,7 +159,7 @@ export const MediaGridPage: React.FC<MediaGridPageProps> = ({
                                 Chargement de la suite...
                             </div>
                         ) : (
-                            <span>Plus de résultats ↓</span>
+                            <span className="flex items-center gap-1">Plus de résultats <ChevronDown size={16} /></span>
                         )}
                     </div>
                 )}

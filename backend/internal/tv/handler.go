@@ -135,6 +135,36 @@ type SeriesNotificationsPayload struct {
 }
 
 // PUT /api/tvs/:id/notifications (Activer / désactiver les notifications des nouveaux épisodes)
+// PUT /api/v1/tvs/:id/rating  { "rating": 1..10 | null }
+func (h *Handler) HandlerSetRating(c *gin.Context) {
+	userID, exists := c.Get("clerkUserID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Utilisateur non authentifié"})
+		return
+	}
+	seriesID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID invalide"})
+		return
+	}
+	var req struct {
+		Rating *int `json:"rating"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON invalide"})
+		return
+	}
+	if err := h.service.SetSeriesRating(userID.(string), seriesID, req.Rating); err != nil {
+		if errors.Is(err, ErrSeriesNotTracked) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Série non suivie"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user_rating": req.Rating})
+}
+
 func (h *Handler) HandlerSetNotifications(c *gin.Context) {
 	userID, exists := c.Get("clerkUserID")
 	if !exists {

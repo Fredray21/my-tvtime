@@ -20,18 +20,22 @@ export interface EpisodeMutationVars {
 export type MediaMutationVars =
     | { kind: 'status'; dto: UpdateStatusDTO }
     | { kind: 'remove'; tmdbId: number; mediaType: 'movie' | 'tv' }
-    | { kind: 'notifications'; tmdbId: number; enabled: boolean };
+    | { kind: 'notifications'; tmdbId: number; enabled: boolean }
+    | { kind: 'rating'; tmdbId: number; mediaType: 'movie' | 'tv'; rating: number | null };
 
 const mutationMediaType = (vars: MediaMutationVars): 'movie' | 'tv' => {
     if (vars.kind === 'status') return vars.dto.media_type;
-    if (vars.kind === 'remove') return vars.mediaType;
+    if (vars.kind === 'remove' || vars.kind === 'rating') return vars.mediaType;
     return 'tv';
 };
 
 const mutationTmdbId = (vars: MediaMutationVars) => (vars.kind === 'status' ? vars.dto.tmdb_id : vars.tmdbId);
 
 export const registerOfflineMutations = (queryClient: QueryClient, media: MediaApi) => {
+    // scope : les actions d'un même type sont envoyées l'une après l'autre, dans l'ordre
+    // (ex : "vu" puis "Annuler" depuis le toast ne doivent pas se croiser sur le réseau)
     queryClient.setMutationDefaults(EPISODE_MUTATION_KEY, {
+        scope: { id: 'offline-episode' },
         mutationFn: (vars: EpisodeMutationVars) => {
             const { seriesId, seasonNumber, episodeNumber = 0 } = vars;
             switch (vars.action) {
@@ -52,10 +56,12 @@ export const registerOfflineMutations = (queryClient: QueryClient, media: MediaA
     });
 
     queryClient.setMutationDefaults(MEDIA_MUTATION_KEY, {
+        scope: { id: 'offline-media' },
         mutationFn: (vars: MediaMutationVars) => {
             switch (vars.kind) {
                 case 'remove': return media.removeMedia(vars.tmdbId, vars.mediaType);
                 case 'notifications': return media.setSeriesNotifications(vars.tmdbId, vars.enabled);
+                case 'rating': return media.setRating(vars.tmdbId, vars.mediaType, vars.rating);
                 default: return media.updateStatus(vars.dto);
             }
         },
@@ -65,6 +71,14 @@ export const registerOfflineMutations = (queryClient: QueryClient, media: MediaA
             if (vars.kind === 'notifications') {
                 // Seule la fiche de la série affiche la cloche
                 queryClient.invalidateQueries({ queryKey: ['tv', tmdbId] });
+                return;
+            }
+            if (vars.kind === 'rating') {
+                // La note n'affecte ni les stats ni le calendrier : fiche + listes qui l'affichent
+                queryClient.invalidateQueries({ queryKey: mediaType === 'movie' ? ['movie', 'movie', tmdbId] : ['tv', tmdbId] });
+                queryClient.invalidateQueries({ queryKey: ['watchlist', mediaType] });
+                queryClient.invalidateQueries({ queryKey: ['favorites', mediaType] });
+                queryClient.invalidateQueries({ queryKey: ['latestMedias', mediaType] });
                 return;
             }
             queryClient.invalidateQueries({ queryKey: mediaType === 'movie' ? ['movie', 'movie', tmdbId] : ['tv', tmdbId] });

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Star, Heart, CheckCircle, Eye, CalendarClock, Loader } from 'lucide-react';
+import { Star, Heart, CheckCircle, Check, CalendarClock, Loader, Bookmark, Play } from 'lucide-react';
 import { triggerVibration } from '../utils/haptics';
+import { providerLogoUrl, useMyPlatforms } from '../hooks/useMyPlatforms';
+import type { WatchProvider } from '../api/mediaApi';
 
 // Ce qu'une carte sait afficher : films / séries (watchlist, recherche, favoris...) et personnes (recherche)
 export interface MediaCardItem {
@@ -20,6 +22,8 @@ export interface MediaCardItem {
     next_season_number?: number;
     next_episode_number?: number;
     next_episode_to_air?: { air_date?: string } | null;
+    // Plateformes incluses en France (absent dans les listes TMDB)
+    available_on?: WatchProvider[];
 }
 
 interface MediaCardProps {
@@ -28,6 +32,8 @@ interface MediaCardProps {
     layout?: 'card' | 'list';
     onStatusChange?: (mediaId: number, newStatus: 'watchlist' | 'watched') => Promise<void> | void;
     onWatchEpisode?: (id: number, season: number, episode: number) => Promise<void> | void;
+    // Affiche une pastille "Vu / En cours / Dans ta liste" (utile hors de la watchlist)
+    showStatusBadge?: boolean;
 }
 
 export const MediaCard: React.FC<MediaCardProps> = ({
@@ -35,7 +41,8 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     fallbackMediaType = 'movie',
     layout = 'card',
     onStatusChange,
-    onWatchEpisode
+    onWatchEpisode,
+    showStatusBadge = false
 }) => {
     const title = item.title || item.name || 'Sans titre';
     const imagePath = item.poster_path || item.profile_path;
@@ -72,6 +79,18 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     const [isDragging, setIsDragging] = useState(false);
 
     const [isProcessing, setIsProcessing] = useState(false);
+    const [justDone, setJustDone] = useState(false);
+
+    // Logos de mes plateformes qui incluent ce titre (2 max pour rester lisible)
+    const { myProvidersFor } = useMyPlatforms();
+    const myProviders = isPerson ? [] : myProvidersFor(item.available_on).slice(0, 2);
+    const platformLogos = myProviders.length > 0 && (
+        <span className="flex -space-x-1" title={`Inclus : ${myProviders.map(p => p.provider_name).join(', ')}`}>
+            {myProviders.map(p => (
+                <img key={p.provider_id} src={providerLogoUrl(p.logo_path)} alt={p.provider_name} className="w-[18px] h-[18px] rounded-[5px] ring-1 ring-black/60 object-cover" loading="lazy" />
+            ))}
+        </span>
+    );
 
     const nextSeason = item.next_season_number ?? 0;
     const nextEpisode = item.next_episode_number ?? 0;
@@ -171,6 +190,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                         {/* Conteneur pour l'année ET le badge J-XXX */}
                         <div className="flex items-center gap-2 mt-0.5">
                             {year && !nextEpisode && <p className="text-xs text-zinc-500">{year}</p>}
+                            {platformLogos}
 
                             {/* AJOUT DU TAG J-XXX ICI */}
                             {daysLeft !== null && (
@@ -219,7 +239,8 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 style={{ touchAction: 'pan-y' }}
-                className="relative overflow-hidden rounded-xl cursor-pointer select-none"
+                // isolate : les z-index internes (fond du swipe) restent dans la carte et ne passent pas devant les en-têtes collants
+                className="relative isolate overflow-hidden rounded-xl cursor-pointer select-none"
             >
                 <div className="absolute inset-0 bg-emerald-500/90 flex items-center px-6 z-0">
                     {isProcessing ? (
@@ -247,70 +268,118 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     // ==========================================
     // RENDU 2 : MODE CARTE
     // ==========================================
-    const cardClasses = "bg-zinc-900/50 border border-zinc-800/40 rounded-xl overflow-hidden flex flex-col group transition-all hover:border-zinc-700 relative";
+    // Action rapide sur l'affiche : film à voir -> vu, série -> prochain épisode vu
+    const canMarkMovie = mediaType === 'movie' && !!onStatusChange && item.status_local === 'watchlist';
+    const canMarkEpisode = mediaType === 'tv' && !!onWatchEpisode && nextEpisode > 0;
+    const hasQuickAction = !isPerson && (canMarkMovie || canMarkEpisode);
 
-    const content = (
-        <div className="flex flex-col flex-grow cursor-pointer relative">
-            <div className="aspect-[2/3] w-full overflow-hidden relative bg-zinc-950">
+    const statusBadge = showStatusBadge && !isPerson ? getStatusBadge(item.status_local) : null;
+    const rating = !isPerson && item.vote_average && item.vote_average > 0 ? item.vote_average.toFixed(1) : null;
+
+    const handleQuickAction = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isProcessing || justDone) return;
+        triggerVibration([20, 60, 20]);
+        setJustDone(true);
+        // Petite pause pour laisser l'animation de validation se jouer avant que la carte ne bouge
+        await new Promise(resolve => setTimeout(resolve, 350));
+        await handleAction();
+        setJustDone(false);
+    };
+
+    return (
+        <Link to={targetUrl} className="group flex flex-col gap-2 min-w-0 outline-none">
+            <div className={`relative w-full overflow-hidden ${isPerson ? 'aspect-square rounded-full' : 'aspect-[2/3] rounded-xl'} bg-zinc-900 ring-1 ring-white/5 shadow-lg shadow-black/40 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:ring-white/15 group-focus-visible:ring-2 group-focus-visible:ring-purple-500`}>
                 <img
                     src={imageUrl}
                     alt={title}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                     loading="lazy"
                 />
 
-                {!isPerson && !!item.vote_average && item.vote_average > 0 && (
-                    <div className="absolute top-2 left-2 flex items-center gap-1 bg-zinc-950/80 text-amber-400 font-bold px-1.5 py-0.5 rounded text-[10px] backdrop-blur-sm border border-zinc-800">
-                        <Star fill="currentColor" size={10} /> {item.vote_average.toFixed(1)}
-                    </div>
+                {/* Dégradé discret pour la lisibilité des pastilles */}
+                {(hasQuickAction || daysLeft !== null || platformLogos) && (
+                    <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
                 )}
 
-                <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                {/* Haut : sortie prochaine / statut, favori */}
+                <div className="absolute top-1.5 inset-x-1.5 flex items-start justify-between gap-1 pointer-events-none">
+                    {daysLeft !== null ? (
+                        <span className="flex items-center gap-1 bg-black/60 backdrop-blur-md text-purple-300 px-1.5 py-0.5 rounded-md text-[10px] font-bold ring-1 ring-purple-400/30">
+                            <CalendarClock size={10} /> J-{daysLeft}
+                        </span>
+                    ) : statusBadge ? (
+                        <span className={`flex items-center justify-center w-5 h-5 rounded-full backdrop-blur-md ${statusBadge.className}`} title={statusBadge.label}>
+                            <statusBadge.icon size={11} strokeWidth={3} />
+                        </span>
+                    ) : <span />}
                     {item.is_favorite && (
-                        <div className="bg-black/90 text-red-500 p-1.5 rounded-full shadow-md backdrop-blur-sm">
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-black/60 backdrop-blur-md text-rose-500">
                             <Heart fill="currentColor" size={10} />
-                        </div>
-                    )}
-                    {daysLeft !== null && (
-                        <div className="flex items-center gap-1 bg-purple-500 text-black px-2 py-1 rounded-md text-[13px] font-black shadow-lg shadow-purple-500/20">
-                            <CalendarClock size={14} />
-                            <span>J-{daysLeft}</span>
-                        </div>
+                        </span>
                     )}
                 </div>
+
+                {/* Bas : mes plateformes, prochain épisode + action rapide */}
+                {(hasQuickAction || platformLogos) && (
+                    <div className="absolute bottom-1.5 inset-x-1.5 flex items-end justify-between gap-1 pointer-events-none">
+                        <span className="flex flex-col items-start gap-1">
+                            {platformLogos}
+                            {canMarkEpisode && (
+                                <span className="bg-black/60 backdrop-blur-md text-white px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums">
+                                    S{nextSeason} · E{nextEpisode}
+                                </span>
+                            )}
+                        </span>
+                        {hasQuickAction && <button
+                            type="button"
+                            onClick={handleQuickAction}
+                            disabled={isProcessing}
+                            aria-label={canMarkEpisode ? `Marquer S${nextSeason}E${nextEpisode} comme vu` : 'Marquer comme vu'}
+                            className={`pointer-events-auto flex items-center justify-center w-8 h-8 rounded-full backdrop-blur-md transition-all duration-300 active:scale-90 ${justDone
+                                ? 'bg-emerald-500 text-black scale-110 shadow-lg shadow-emerald-500/40'
+                                : 'bg-black/55 text-white/90 ring-1 ring-white/20 hover:bg-emerald-500 hover:text-black hover:ring-emerald-400'
+                                }`}
+                        >
+                            {isProcessing && !justDone
+                                ? <Loader size={14} className="animate-spin" />
+                                : <Check size={16} strokeWidth={3} />}
+                        </button>}
+                    </div>
+                )}
             </div>
 
-            <div className="p-2.5 pb-1 flex flex-col justify-between flex-grow gap-1">
-                <h3 className="font-medium text-xs text-zinc-200 line-clamp-1 group-hover:text-white">{title}</h3>
-                {year && <p className="text-[10px] text-zinc-500 font-medium">{year}</p>}
-            </div>
-        </div>
-    );
-
-    return (
-        <div className={cardClasses}>
-            <Link to={targetUrl}>{content}</Link>
-
-            {fallbackMediaType === 'movie' && onStatusChange && !isPerson && item.status_local && (
-                <div className="p-2 pt-1.5 z-10 relative">
-                    <button
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            triggerVibration(item.status_local === 'watchlist' ? [50, 80, 20] : [20, 80, 20]);
-                            onStatusChange(itemId, item.status_local === 'watchlist' ? 'watched' : 'watchlist')
-                        }}
-                        className={`w-full py-1.5 rounded-lg text-[10px] font-bold tracking-wide transition-all duration-200 flex items-center justify-center gap-1.5 ${item.status_local === 'watchlist'
-                            ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
-                            : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                            }`}
-                    >
-                        {item.status_local === 'watchlist' && (
-                            <><Eye size={12} strokeWidth={2.5} /> MARQUER VU</>
+            <div className={`min-w-0 px-0.5 ${isPerson ? 'text-center' : ''}`}>
+                <h3 className="text-[12px] font-semibold leading-tight text-zinc-200 line-clamp-1 group-hover:text-white transition-colors">{title}</h3>
+                {!isPerson && (year || rating) && (
+                    <p className="mt-0.5 flex items-center gap-1.5 text-[10px] font-medium text-zinc-500 tabular-nums">
+                        {year && <span>{year}</span>}
+                        {year && rating && <span className="w-0.5 h-0.5 rounded-full bg-zinc-600" />}
+                        {rating && (
+                            <span className="flex items-center gap-0.5 text-zinc-400">
+                                <Star size={9} fill="currentColor" className="text-amber-400" /> {rating}
+                            </span>
                         )}
-                    </button>
-                </div>
-            )}
-        </div>
+                    </p>
+                )}
+            </div>
+        </Link>
     );
+};
+
+// Pastille de statut pour les listes de découverte (recherche, tendances)
+const getStatusBadge = (status?: string): { icon: React.ElementType; label: string; className: string } | null => {
+    switch (status) {
+        case 'watched':
+        case 'finished':
+            return { icon: Check, label: 'Vu', className: 'bg-emerald-500/90 text-black' };
+        case 'watching':
+        case 'pending':
+            return { icon: Play, label: 'En cours', className: 'bg-purple-500/90 text-black' };
+        case 'watchlist':
+            return { icon: Bookmark, label: 'Dans ta liste', className: 'bg-black/60 text-white ring-1 ring-white/20' };
+        default:
+            return null;
+    }
 };

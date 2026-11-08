@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useApi } from '../../context/ApiContext';
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { MediaCard } from '../../components/MediaCard';
 import type { MediaCustomResponse, UpdateStatusDTO, WatchlistPaginatedResponse } from '../../api/mediaApi';
 import { EPISODE_MUTATION_KEY, MEDIA_MUTATION_KEY, type EpisodeMutationVars, type MediaMutationVars } from '../../offline/mutations';
@@ -8,7 +8,9 @@ import { OfflineNotice } from '../../offline/OfflineNotice';
 import { UpcomingCalendar } from '../../components/UpcomingCalendar';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 import { triggerVibration } from '../../utils/haptics';
-import { Grid, List, Tv, Hourglass, PlayCircle, CheckCircle, Popcorn } from 'lucide-react';
+import { Grid, List, Tv, Hourglass, PlayCircle, CheckCircle, Popcorn, Dices } from 'lucide-react';
+import { WatchlistPicker } from './WatchlistPicker';
+import { offlineHint, showToast } from '../../utils/toast';
 
 interface WatchlistViewProps {
     mediaType: 'movie' | 'tv';
@@ -26,7 +28,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         mediaType === 'tv' ? 'watchlist_view_mode_tv' : 'watchlist_view_mode_movie',
         'card'
     );
-
+    const [isPickerOpen, setIsPickerOpen] = useState(false);
 
     const {
         data,
@@ -78,10 +80,21 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         });
     };
 
+    // "Annuler" depuis le toast : le film revient en tête de "À voir", là où le serveur le placera aussi
+    // (la liste est triée par dernière modification), pour éviter qu'il ne saute au rechargement
+    const restoreWatchlistItem = (item: MediaCustomResponse) => {
+        queryClient.setQueryData<InfiniteData<WatchlistPaginatedResponse>>(watchlistKey, old => {
+            if (!old || old.pages.length === 0) return old;
+            if (old.pages.some(page => page.results.some(r => r.id === item.id))) return old;
+            const [first, ...rest] = old.pages;
+            return { ...old, pages: [{ ...first, results: [{ ...item, status_local: 'watchlist' }, ...first.results] }, ...rest] };
+        });
+    };
+
     const mediaMutation = useMutation<unknown, Error, MediaMutationVars>({
         mutationKey: MEDIA_MUTATION_KEY,
         onMutate: async (vars) => {
-            if (vars.kind === 'notifications') return; // réglage propre aux séries, sans effet sur la liste
+            if (vars.kind === 'notifications' || vars.kind === 'rating') return; // sans effet sur la liste
             await queryClient.cancelQueries({ queryKey: watchlistKey });
             // Un film vu (ou retiré) quitte la liste "À voir"
             const tmdbId = vars.kind === 'remove' ? vars.tmdbId : vars.dto.tmdb_id;
@@ -134,6 +147,17 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
     // Pas d'attente du serveur : hors ligne, l'action part dans la file et l'affichage est déjà à jour
     const handleWatchEpisode = (id: number, season: number, episode: number) => {
         episodeMutation.mutate({ seriesId: id, seasonNumber: season, episodeNumber: episode, action: 'watch' });
+
+        const series = uniqueData.find(item => item.id === id);
+        showToast({
+            title: `S${season} · E${episode} vu !`,
+            subtitle: offlineHint() ?? series?.name,
+            posterPath: series?.poster_path,
+            action: {
+                label: 'Annuler',
+                onClick: () => episodeMutation.mutate({ seriesId: id, seasonNumber: season, episodeNumber: episode, action: 'remove' }),
+            },
+        });
     };
 
     const handleStatusChange = (id: number, newStatus: UpdateStatusDTO['status_local']) => {
@@ -145,6 +169,26 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
             kind: 'status',
             dto: { tmdb_id: id, media_type: mediaType, status_local: newStatus, is_favorite: false, rewatch_count: 0 },
         });
+
+        if (newStatus === 'watched') {
+            const movie = uniqueData.find(item => item.id === id);
+            showToast({
+                title: 'Vu !',
+                subtitle: offlineHint() ?? movie?.title,
+                posterPath: movie?.poster_path,
+                action: {
+                    // Le film retourne dans "À voir" : affiché tout de suite, puis envoyé au serveur
+                    label: 'Annuler',
+                    onClick: () => {
+                        if (movie) restoreWatchlistItem(movie);
+                        mediaMutation.mutate({
+                            kind: 'status',
+                            dto: { tmdb_id: id, media_type: mediaType, status_local: 'watchlist', is_favorite: movie?.is_favorite ?? false, rewatch_count: movie?.rewatch_count ?? 0 },
+                        });
+                    },
+                },
+            });
+        }
     }
 
     return (
@@ -155,12 +199,24 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                         <h1 className="text-2xl font-bold tracking-tight">
                             {mediaType === 'movie' ? 'Mes Films' : 'Mes Séries'}
                         </h1>
-                        <button
-                            onClick={() => { triggerVibration([10]); setViewMode(prev => prev === 'card' ? 'list' : 'card'); }}
-                            className="p-2 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
-                        >
-                            {viewMode === 'card' ? <List size={20} /> : <Grid size={20} />}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {displayData.length > 0 && (
+                                <button
+                                    onClick={() => { triggerVibration([15, 30, 15]); setIsPickerOpen(true); }}
+                                    className="group flex items-center gap-1.5 pl-3 pr-3.5 py-2 bg-purple-500/10 border border-purple-500/30 rounded-full text-purple-300 text-xs font-bold hover:bg-purple-500/20 hover:text-purple-200 transition-colors"
+                                >
+                                    <Dices size={16} className="transition-transform duration-500 group-hover:rotate-[360deg]" />
+                                    Je choisis pour toi
+                                </button>
+                            )}
+                            <button
+                                onClick={() => { triggerVibration([10]); setViewMode(prev => prev === 'card' ? 'list' : 'card'); }}
+                                className="p-2 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
+                                aria-label="Changer la vue"
+                            >
+                                {viewMode === 'card' ? <List size={20} /> : <Grid size={20} />}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex bg-zinc-900 rounded-xl p-1 mb-4">
@@ -230,6 +286,8 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                     </div>
                 )}
             </div>
+
+            {isPickerOpen && <WatchlistPicker mediaType={mediaType} onClose={() => setIsPickerOpen(false)} />}
         </div>
     );
 };

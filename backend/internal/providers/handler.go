@@ -29,10 +29,58 @@ type RegionProviders struct {
 
 type Handler struct {
 	tmdbClient *tmdb.Client
+	service    *Service
 }
 
-func NewHandler(tmdbClient *tmdb.Client) *Handler {
-	return &Handler{tmdbClient: tmdbClient}
+func NewHandler(tmdbClient *tmdb.Client, service *Service) *Handler {
+	return &Handler{tmdbClient: tmdbClient, service: service}
+}
+
+// GET /api/v1/providers/catalog : plateformes proposées dans "Mes plateformes"
+func (h *Handler) HandleGetCatalog(c *gin.Context) {
+	catalog, err := h.service.Catalog()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de la récupération des plateformes"})
+		return
+	}
+	c.JSON(http.StatusOK, catalog)
+}
+
+// GET /api/v1/user/providers
+func (h *Handler) HandleGetUserProviders(c *gin.Context) {
+	userID, exists := c.Get("clerkUserID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Utilisateur non authentifié"})
+		return
+	}
+	ids, err := h.service.GetUserProviders(userID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"provider_ids": ids})
+}
+
+// PUT /api/v1/user/providers  { "provider_ids": [8, 119] } : remplace la sélection
+func (h *Handler) HandleSetUserProviders(c *gin.Context) {
+	userID, exists := c.Get("clerkUserID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Utilisateur non authentifié"})
+		return
+	}
+	var req struct {
+		ProviderIDs []int `json:"provider_ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON invalide"})
+		return
+	}
+	ids, err := h.service.SetUserProviders(userID.(string), req.ProviderIDs)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"provider_ids": ids})
 }
 
 // HandleGetProviders renvoie un handler pour GET /movies/:id/providers ou /tvs/:id/providers (?region=FR par défaut)
@@ -44,7 +92,7 @@ func (h *Handler) HandleGetProviders(mediaType string) gin.HandlerFunc {
 			return
 		}
 
-		region := strings.ToUpper(c.DefaultQuery("region", "FR"))
+		region := strings.ToUpper(c.DefaultQuery("region", Region))
 
 		data, err := h.tmdbClient.GetWatchProviders(mediaType, tmdbID)
 		if err != nil {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronRight, Layers } from 'lucide-react';
@@ -18,11 +18,22 @@ export const SagaProgress: React.FC<SagaProgressProps> = ({ collectionId, curren
         queryFn: () => api.media.getSaga(collectionId),
     });
 
+    // Le film affiché peut être loin dans la saga (ex : le 10e) : on fait défiler la bande jusqu'à lui.
+    // On déplace scrollLeft du conteneur (et pas scrollIntoView) pour ne pas faire bouger la page.
+    const stripRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        const strip = stripRef.current;
+        const current = strip?.querySelector<HTMLElement>('[data-current]');
+        if (!strip || !current) return;
+        strip.scrollLeft = current.offsetLeft - strip.offsetLeft - (strip.clientWidth - current.offsetWidth) / 2;
+    }, [saga, currentMovieId]);
+
     if (isLoading) return <div className="h-28 mb-8 bg-zinc-900 rounded-xl animate-pulse" />;
     if (!saga || saga.parts.length < 2) return null;
 
     const percent = saga.released_count > 0 ? Math.round((saga.watched_count / saga.released_count) * 100) : 0;
     const next = saga.next_movie && saga.next_movie.id !== currentMovieId ? saga.next_movie : null;
+    const currentIndex = saga.parts.findIndex(part => part.id === currentMovieId);
 
     return (
         <Link
@@ -35,6 +46,11 @@ export const SagaProgress: React.FC<SagaProgressProps> = ({ collectionId, curren
                         <Layers size={12} /> Fait partie de la saga
                     </p>
                     <h2 className="text-sm font-bold text-zinc-100 line-clamp-1 mt-0.5">{saga.name}</h2>
+                    {currentIndex >= 0 && (
+                        <p className="text-[11px] text-purple-400 font-semibold mt-0.5">
+                            Film {currentIndex + 1} sur {saga.parts.length}
+                        </p>
+                    )}
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                     <span className={`text-sm font-black ${saga.is_complete ? 'text-emerald-400' : 'text-white'}`}>
@@ -44,12 +60,17 @@ export const SagaProgress: React.FC<SagaProgressProps> = ({ collectionId, curren
                 </div>
             </div>
 
-            {/* Mini affiches dans l'ordre de sortie */}
-            <div className="flex gap-1.5 overflow-hidden mb-3">
-                {saga.parts.map(part => (
+            {/* Mini affiches dans l'ordre de sortie, centrées sur le film affiché */}
+            <div
+                ref={stripRef}
+                className="flex gap-1.5 overflow-x-auto scrollbar-none mb-3 py-1 px-0.5 [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]"
+            >
+                {saga.parts.map((part, index) => (
                     <div
                         key={part.id}
-                        className={`relative w-9 flex-shrink-0 aspect-[2/3] rounded overflow-hidden bg-zinc-950 ${part.id === currentMovieId ? 'ring-2 ring-purple-500' : ''} ${part.is_released ? '' : 'opacity-40'}`}
+                        data-current={part.id === currentMovieId || undefined}
+                        title={`${index + 1}. ${part.title}`}
+                        className={`relative w-9 flex-shrink-0 aspect-[2/3] rounded overflow-hidden bg-zinc-950 transition-transform ${part.id === currentMovieId ? 'ring-2 ring-purple-500 scale-110 mx-1 z-10' : ''} ${part.is_released ? '' : 'opacity-40'}`}
                     >
                         {part.poster_path && (
                             <img src={`https://image.tmdb.org/t/p/w92${part.poster_path}`} alt={part.title} className="w-full h-full object-cover" loading="lazy" />

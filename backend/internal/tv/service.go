@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Fredray21/my-tvtime/internal/providers"
 	"github.com/Fredray21/my-tvtime/internal/tmdb"
 )
 
@@ -130,17 +131,25 @@ type TMDBSeriesResult struct {
 			Published string `json:"published_at"`
 		} `json:"results"`
 	} `json:"videos"`
+
+	// Plateformes incluses en France (bloc "watch/providers" des détails TMDB, réduit à la France).
+	// Exposé au front sous "available_on" (voir exposeAvailability).
+	WatchProviders providers.Streaming `json:"watch/providers,omitempty"`
 }
 
 // Réponse formatée pour ton frontend
 type SeriesCustomResponse struct {
 	TMDBSeriesResult
-	StatusLocal          string    `json:"status_local"` // 'watchlist', 'watching', 'finished', 'pending', 'not_tracked'
-	IsFavorite           bool      `json:"is_favorite"`
-	NotificationsEnabled bool      `json:"notifications_enabled"` // nouveaux épisodes (fiche détail uniquement)
-	MediaType            string    `json:"media_type"`
-	CreatedAt            time.Time `json:"created_at,omitempty"`
-	UpdatedAt            time.Time `json:"updated_at,omitempty"`
+	StatusLocal          string `json:"status_local"` // 'watchlist', 'watching', 'finished', 'pending', 'not_tracked'
+	IsFavorite           bool   `json:"is_favorite"`
+	NotificationsEnabled bool   `json:"notifications_enabled"` // nouveaux épisodes (fiche détail uniquement)
+	// Note perso de 1 à 10 (affichée en demi-étoiles sur 5), null si la série n'est pas notée
+	UserRating *int `json:"user_rating"`
+	// Plateformes incluses en France : absent quand on ne le sait pas (listes TMDB), [] si aucune
+	AvailableOn *providers.Streaming `json:"available_on,omitempty"`
+	MediaType   string               `json:"media_type"`
+	CreatedAt   time.Time            `json:"created_at,omitempty"`
+	UpdatedAt   time.Time            `json:"updated_at,omitempty"`
 
 	NextSeasonNumber  int `json:"next_season_number"`
 	NextEpisodeNumber int `json:"next_episode_number"`
@@ -180,6 +189,16 @@ type EpisodeCustomResponse struct {
 type SeasonCustomResponse struct {
 	TMDBSeasonDetail
 	Episodes []EpisodeCustomResponse `json:"episodes"`
+}
+
+// exposeAvailability déplace les plateformes décodées des détails TMDB vers "available_on"
+func (m *SeriesCustomResponse) exposeAvailability() {
+	available := m.WatchProviders
+	if available == nil {
+		available = providers.Streaming{}
+	}
+	m.AvailableOn = &available
+	m.WatchProviders = nil
 }
 
 type TVService struct {
@@ -347,6 +366,7 @@ func (s *TVService) GetSeriesDetailsForUser(userID string, seriesID int) (*Serie
 		NextSeasonNumber:  nextSeason,
 		NextEpisodeNumber: nextEpisode,
 	}
+	customSeries.exposeAvailability()
 
 	// Statut global de la série (spécifique à la fiche détail)
 	record, err := s.repo.GetSeriesStatus(userID, seriesID)
@@ -354,6 +374,7 @@ func (s *TVService) GetSeriesDetailsForUser(userID string, seriesID int) (*Serie
 		customSeries.StatusLocal = record.Status
 		customSeries.IsFavorite = record.IsFavorite
 		customSeries.NotificationsEnabled = record.NotificationsEnabled
+		customSeries.UserRating = record.UserRating
 		customSeries.CreatedAt = record.CreatedAt
 		customSeries.UpdatedAt = record.UpdatedAt
 	} else {
@@ -366,6 +387,14 @@ func (s *TVService) GetSeriesDetailsForUser(userID string, seriesID int) (*Serie
 // SetSeriesNotifications active / désactive les notifications des nouveaux épisodes d'une série suivie
 func (s *TVService) SetSeriesNotifications(userID string, tmdbSeriesID int, enabled bool) error {
 	return s.repo.SetSeriesNotifications(userID, tmdbSeriesID, enabled)
+}
+
+// SetSeriesRating enregistre (ou efface avec nil) la note perso d'une série suivie
+func (s *TVService) SetSeriesRating(userID string, tmdbSeriesID int, rating *int) error {
+	if rating != nil && (*rating < 1 || *rating > 10) {
+		return fmt.Errorf("note invalide: %d (attendu entre 1 et 10)", *rating)
+	}
+	return s.repo.SetSeriesRating(userID, tmdbSeriesID, rating)
 }
 
 // UpdateSeriesStatus permet de forcer un statut (ex: 'watchlist' ou 'favorite') sans regarder d'épisodes

@@ -17,6 +17,7 @@ import { WrappedView } from './features/wrapped/WrappedView';
 import { SagaDetailsView } from './features/saga/SagaDetailsView';
 import { SagasView } from './features/saga/SagasView';
 import { MediaGridPage } from './components/MediaGridPage';
+import { DiscoverListView } from './features/discover/DiscoverListView';
 import { Clock, Heart } from 'lucide-react';
 import { useApi } from './context/ApiContext';
 
@@ -63,6 +64,7 @@ export const App = () => {
                 { path: "/", element: <WatchlistView key={"movie"} mediaType="movie" /> },
                 { path: "/tv", element: <WatchlistView key={"tv"} mediaType="tv" /> },
                 { path: "/search", element: <SearchView /> },
+                { path: "/discover/:type/:list", element: <DiscoverListView /> },
                 { path: "/movie/:id", element: <MovieDetailsView /> },
                 { path: "/tv/:id", element: <TVDetailsView /> },
                 { path: "/person/:id", element: <PersonDetailsView /> },

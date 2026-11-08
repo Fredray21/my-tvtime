@@ -1,8 +1,10 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink } from 'lucide-react';
+import { Check, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useApi } from '../context/ApiContext';
 import type { WatchProvider } from '../api/mediaApi';
+import { useMyPlatforms } from '../hooks/useMyPlatforms';
 
 interface WatchProvidersProps {
     id: number;
@@ -17,8 +19,12 @@ const SECTIONS = [
     { key: 'buy', label: 'Achat' },
 ] as const;
 
+// Sections "incluses" : ce qu'on regarde sans payer en plus quand on a l'abonnement
+const INCLUDED_SECTIONS = new Set<string>(['flatrate', 'free', 'ads']);
+
 export const WatchProviders: React.FC<WatchProvidersProps> = ({ id, mediaType }) => {
     const api = useApi();
+    const { matchIds, hasPlatforms, myProvidersFor } = useMyPlatforms();
 
     const { data, isLoading } = useQuery({
         queryKey: [mediaType, 'providers', id],
@@ -42,6 +48,9 @@ export const WatchProviders: React.FC<WatchProvidersProps> = ({ id, mediaType })
         .map(section => ({ ...section, providers: [...(data?.[section.key] ?? [])].sort((a, b) => a.display_priority - b.display_priority) }))
         .filter(section => section.providers.length > 0);
 
+    // Mes plateformes qui incluent ce titre (une fois par abonnement, même listé en "Streaming" et "Avec pub")
+    const mine = myProvidersFor(sections.filter(section => INCLUDED_SECTIONS.has(section.key)).flatMap(section => section.providers));
+
     return (
         <div className="mb-8">
             <div className="flex items-center justify-between mb-3">
@@ -60,24 +69,43 @@ export const WatchProviders: React.FC<WatchProvidersProps> = ({ id, mediaType })
 
             {sections.length > 0 ? (
                 <div className="flex flex-col gap-3 bg-zinc-900/40 p-4 rounded-xl border border-zinc-800/50">
+                    {mine.length > 0 ? (
+                        <p className="flex items-center gap-1.5 -mt-0.5 mb-1 text-xs font-semibold text-purple-300">
+                            <Check size={13} strokeWidth={3} /> Inclus dans ton abonnement {mine.map(p => p.provider_name).join(', ')}
+                        </p>
+                    ) : hasPlatforms ? (
+                        <p className="-mt-0.5 mb-1 text-xs text-zinc-500">Pas inclus dans tes plateformes pour le moment.</p>
+                    ) : null}
                     {sections.map(section => (
                         <div key={section.key} className="flex items-center gap-3">
                             <span className="w-16 flex-shrink-0 text-zinc-500 text-[10px] uppercase tracking-wider font-medium">{section.label}</span>
                             <div className="flex flex-wrap gap-2">
-                                {section.providers.map((provider: WatchProvider) => (
-                                    <img
-                                        key={provider.provider_id}
-                                        src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
-                                        alt={provider.provider_name}
-                                        title={provider.provider_name}
-                                        className="w-10 h-10 rounded-xl border border-zinc-800 object-cover"
-                                        loading="lazy"
-                                    />
-                                ))}
+                                {section.providers.map((provider: WatchProvider) => {
+                                    const isMine = INCLUDED_SECTIONS.has(section.key) && matchIds.has(provider.provider_id);
+                                    return (
+                                        <span key={provider.provider_id} className="relative">
+                                            <img
+                                                src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
+                                                alt={provider.provider_name}
+                                                title={isMine ? `${provider.provider_name} · dans tes plateformes` : provider.provider_name}
+                                                className={`w-10 h-10 rounded-xl object-cover ${isMine ? 'ring-2 ring-purple-400' : 'border border-zinc-800'}`}
+                                                loading="lazy"
+                                            />
+                                            {isMine && (
+                                                <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-purple-500 text-black ring-2 ring-zinc-950">
+                                                    <Check size={9} strokeWidth={4} />
+                                                </span>
+                                            )}
+                                        </span>
+                                    );
+                                })}
                             </div>
                         </div>
                     ))}
-                    <p className="text-[9px] text-zinc-600 mt-1">Disponibilités en France · Données JustWatch</p>
+                    <p className="text-[9px] text-zinc-600 mt-1">
+                        Disponibilités en France · Données JustWatch
+                        {!hasPlatforms && <> · <Link to="/settings" className="text-purple-400 hover:text-purple-300">Choisir mes plateformes</Link></>}
+                    </p>
                 </div>
             ) : (
                 <div className="text-zinc-500 text-sm italic bg-zinc-900/30 p-4 rounded-xl text-center border border-dashed border-zinc-800">

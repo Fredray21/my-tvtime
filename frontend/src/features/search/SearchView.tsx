@@ -7,6 +7,7 @@ import { MediaCard } from '../../components/MediaCard';
 import { triggerVibration } from '../../utils/haptics';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 import { Grid, List } from 'lucide-react';
+import { DiscoverHome } from '../discover/DiscoverHome';
 
 type TabType = 'all' | 'movie' | 'tv' | 'person';
 
@@ -121,7 +122,11 @@ export const SearchView = () => {
 
             <div className="px-4 mt-6 max-w-7xl mx-auto">
                 {debouncedQuery.length <= 1 ? (
-                    <div className="text-center text-zinc-600 text-xs mt-20">Tape au moins 2 caractères pour lancer la recherche...</div>
+                    activeTab === 'person' ? (
+                        <div className="text-center text-zinc-600 text-xs mt-20">Tape au moins 2 caractères pour lancer la recherche...</div>
+                    ) : (
+                        <DiscoverHome filter={activeTab} />
+                    )
                 ) : activeTab === 'all' ? (
                     // RENDER DE L'ONGLET TOUT (SLIDERS)
                     isMultiLoading ? (
@@ -135,7 +140,7 @@ export const SearchView = () => {
                                     <div className="flex overflow-x-auto gap-4 pb-2 scrollbar-none snap-x">
                                         {multiData.movies.map((item) => (
                                             <div key={item.id} className="w-28 flex-shrink-0 snap-start">
-                                                <MediaCard item={item} layout="card" fallbackMediaType='movie' />
+                                                <MediaCard item={item} layout="card" fallbackMediaType='movie' showStatusBadge />
                                             </div>
                                         ))}
                                     </div>
@@ -149,7 +154,7 @@ export const SearchView = () => {
                                     <div className="flex overflow-x-auto gap-4 pb-2 scrollbar-none snap-x">
                                         {multiData.tvShows.map((item) => (
                                             <div key={item.id} className="w-28 flex-shrink-0 snap-start">
-                                                <MediaCard item={item} layout="card" fallbackMediaType='tv' />
+                                                <MediaCard item={item} layout="card" fallbackMediaType='tv' showStatusBadge />
                                             </div>
                                         ))}
                                     </div>
@@ -188,6 +193,7 @@ export const SearchView = () => {
                                         item={item}
                                         layout={viewMode}
                                         fallbackMediaType={activeTab as 'movie' | 'tv' | 'person'}
+                                        showStatusBadge
                                     />
                                 ))}
                             </div>

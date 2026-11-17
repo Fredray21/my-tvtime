@@ -107,7 +107,8 @@ export const App = () => {
                             icon={Clock}
                             mediaType="movie"
                             queryKey={['latest', 'movie', 'infinite']}
-                            queryFn={({ pageParam }) => api.user.getLatestMedias('movie', pageParam)}
+                            queryFn={({ pageParam, sort }) => api.user.getLatestMedias('movie', pageParam, sort)}
+                            sortable
                             emptyTitle="Historique vide"
                             emptyDescription="Tu n'as pas encore regardé de film."
                         />
@@ -121,7 +122,8 @@ export const App = () => {
                             icon={Clock}
                             mediaType="tv"
                             queryKey={['latest', 'tv', 'infinite']}
-                            queryFn={({ pageParam }) => api.user.getLatestMedias('tv', pageParam)}
+                            queryFn={({ pageParam, sort }) => api.user.getLatestMedias('tv', pageParam, sort)}
+                            sortable
                             emptyTitle="Historique vide"
                             emptyDescription="Tu n'as pas encore regardé d'épisode."
                         />

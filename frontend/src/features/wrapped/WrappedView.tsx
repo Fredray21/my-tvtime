@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Clapperboard, Tv, Sparkles, CalendarDays, Repeat, Flame, Zap, CalendarCheck, Trophy, Heart, Share2 } from 'lucide-react';
+import { Clapperboard, Tv, Sparkles, CalendarDays, Repeat, Flame, Zap, CalendarCheck, Trophy, Heart, Share2, Star } from 'lucide-react';
+import { formatRating } from '../../utils/rating';
 import { useApi } from '../../context/ApiContext';
 import { triggerVibration } from '../../utils/haptics';
 import type { WrappedTitle } from '../../api/userApi';
@@ -49,6 +50,11 @@ const PosterLink = ({ title, size = 'w-28' }: { title: WrappedTitle; size?: stri
             {title.is_favorite && (
                 <div className="absolute top-2 right-2 bg-black/90 text-red-500 p-1.5 rounded-full">
                     <Heart fill="currentColor" size={10} />
+                </div>
+            )}
+            {!!title.user_rating && (
+                <div className="absolute bottom-2 left-2 flex items-center gap-0.5 bg-black/80 backdrop-blur-md text-amber-300 px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums">
+                    <Star fill="currentColor" size={10} /> {formatRating(title.user_rating)}
                 </div>
             )}
         </div>
@@ -259,6 +265,20 @@ export const WrappedView = () => {
                                 <p className="text-zinc-500 text-xs -mt-2 mb-4">Tes coups de cœur d'abord, puis les films revus, puis les mieux notés sur TMDB.</p>
                                 <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-none snap-x">
                                     {wrapped.highlight_movies.map(movie => <PosterLink key={movie.id} title={movie} />)}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* MES NOTES */}
+                        {wrapped.top_rated?.length > 0 && (
+                            <div className="mb-10">
+                                <SectionTitle>Tes mieux notés</SectionTitle>
+                                <p className="text-zinc-500 text-xs -mt-2 mb-4">
+                                    Moyenne de tes notes : <span className="text-amber-300 font-bold">{formatRating(wrapped.average_rating)}/5</span>
+                                    {' '}sur {wrapped.rated_count} titre{wrapped.rated_count > 1 ? 's' : ''} noté{wrapped.rated_count > 1 ? 's' : ''} cette année.
+                                </p>
+                                <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-none snap-x">
+                                    {wrapped.top_rated.map(title => <PosterLink key={`${title.media_type}-${title.id}`} title={title} />)}
                                 </div>
                             </div>
                         )}

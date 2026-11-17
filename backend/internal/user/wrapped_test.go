@@ -39,3 +39,23 @@ func TestLongestStreak(t *testing.T) {
 		}
 	}
 }
+
+func TestTopRated(t *testing.T) {
+	r := func(v int) *int { return &v }
+	titles := []WrappedTitle{
+		{ID: 1, UserRating: r(6), VoteAverage: 9},
+		{ID: 2, UserRating: r(9), VoteAverage: 5},
+		{ID: 3, UserRating: r(9), VoteAverage: 8},
+		{ID: 4, UserRating: r(3)},
+	}
+	top, avg := topRated(titles, 3)
+	if avg != 6.8 { // 27 / 4 = 6.75 -> 6.8
+		t.Errorf("moyenne = %v, attendu 6.8", avg)
+	}
+	if len(top) != 3 || top[0].ID != 3 || top[1].ID != 2 || top[2].ID != 1 {
+		t.Errorf("ordre inattendu : %+v", top)
+	}
+	if top, avg := topRated(nil, 3); len(top) != 0 || avg != 0 {
+		t.Errorf("liste vide : %+v, %v", top, avg)
+	}
+}

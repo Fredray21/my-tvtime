@@ -3,6 +3,7 @@ package user
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"sync"
 	"time"
@@ -36,6 +37,7 @@ type WrappedTitle struct {
 	IsFavorite   bool    `json:"is_favorite"`
 	RewatchCount int     `json:"rewatch_count,omitempty"`
 	WatchedAt    string  `json:"watched_at,omitempty"`
+	UserRating   *int    `json:"user_rating,omitempty"` // note perso sur 10
 }
 
 type WrappedSeries struct {
@@ -105,6 +107,11 @@ type WrappedResponse struct {
 	BiggestBinge    *WrappedBinge   `json:"biggest_binge"`
 	LongestStreak   int             `json:"longest_streak"`
 	BackfillDays    int             `json:"backfill_days"`
+
+	// Notes perso des films et séries vus dans l'année
+	TopRated      []WrappedTitle `json:"top_rated"`
+	AverageRating float64        `json:"average_rating"` // sur 10, 0 si rien n'est noté
+	RatedCount    int            `json:"rated_count"`
 }
 
 type wrappedCastMember struct {
@@ -161,6 +168,10 @@ func (s *UserService) GetWrapped(userID string, year int) (*WrappedResponse, err
 	if err != nil {
 		return nil, err
 	}
+	seriesRatings, err := s.repo.GetSeriesRatings(userID)
+	if err != nil {
+		return nil, err
+	}
 
 	// 1. Données TMDB (affiches, genres, durées, casting) récupérées en parallèle
 	movieIDs := make([]int, 0, len(movieRecords))
@@ -189,6 +200,7 @@ func (s *UserService) GetWrapped(userID string, year int) (*WrappedResponse, err
 		HighlightMovies: make([]WrappedTitle, 0),
 		TopGenres:       make([]WrappedGenre, 0),
 		TopActors:       make([]WrappedPerson, 0),
+		TopRated:        make([]WrappedTitle, 0),
 	}
 	for i := range response.Monthly {
 		response.Monthly[i].Month = i + 1
@@ -204,6 +216,7 @@ func (s *UserService) GetWrapped(userID string, year int) (*WrappedResponse, err
 		title := data.title
 		title.IsFavorite = rec.IsFavorite
 		title.RewatchCount = rec.RewatchCount
+		title.UserRating = rec.UserRating
 
 		inYear := func(t time.Time) bool { return !t.Before(start) && t.Before(end) }
 
@@ -239,6 +252,9 @@ func (s *UserService) GetWrapped(userID string, year int) (*WrappedResponse, err
 		stat, exists := seriesStats[rec.TMDBSeriesID]
 		if !exists {
 			stat = &WrappedSeries{WrappedTitle: data.title}
+			if rating, rated := seriesRatings[rec.TMDBSeriesID]; rated {
+				stat.UserRating = &rating
+			}
 			seriesStats[rec.TMDBSeriesID] = stat
 		}
 		stat.Episodes++
@@ -314,6 +330,21 @@ func (s *UserService) GetWrapped(userID string, year int) (*WrappedResponse, err
 	for _, stat := range seriesStats {
 		response.TopSeries = append(response.TopSeries, *stat)
 	}
+
+	// Notes perso : films vus dans l'année + séries suivies dans l'année
+	rated := make([]WrappedTitle, 0)
+	for _, title := range yearMovies {
+		if title.UserRating != nil {
+			rated = append(rated, title)
+		}
+	}
+	for _, stat := range seriesStats {
+		if stat.UserRating != nil {
+			rated = append(rated, stat.WrappedTitle)
+		}
+	}
+	response.TopRated, response.AverageRating = topRated(rated, 6)
+	response.RatedCount = len(rated)
 	sort.Slice(response.TopSeries, func(i, j int) bool {
 		return response.TopSeries[i].Episodes > response.TopSeries[j].Episodes
 	})
@@ -489,6 +520,30 @@ func (s *UserService) fetchWrappedTitle(mediaType string, id int) (wrappedTitleD
 	}
 
 	return data, nil
+}
+
+// topRated trie les titres notés (meilleure note, puis note TMDB) et calcule la moyenne sur 10, arrondie au dixième
+func topRated(rated []WrappedTitle, limit int) ([]WrappedTitle, float64) {
+	if len(rated) == 0 {
+		return []WrappedTitle{}, 0
+	}
+	sum := 0
+	for _, t := range rated {
+		sum += *t.UserRating
+	}
+	average := math.Round(float64(sum)/float64(len(rated))*10) / 10
+
+	sorted := append([]WrappedTitle(nil), rated...)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		if *sorted[i].UserRating != *sorted[j].UserRating {
+			return *sorted[i].UserRating > *sorted[j].UserRating
+		}
+		return sorted[i].VoteAverage > sorted[j].VoteAverage
+	})
+	if len(sorted) > limit {
+		sorted = sorted[:limit]
+	}
+	return sorted, average
 }
 
 // longestStreak calcule le plus grand nombre de jours consécutifs avec au moins une vue

@@ -25,7 +25,7 @@ func (h *Handler) HandleGetLatestMovies(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 
-	movies, err := h.service.GetLatestWatchedMovies(userID.(string), page, limit)
+	movies, err := h.service.GetLatestWatchedMovies(userID.(string), page, limit, c.Query("sort") == "rating")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service error", "details": err.Error()})
 		return
@@ -55,7 +55,7 @@ func (h *Handler) HandleGetLatestTV(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 
 	// On récupère les épisodes vus
-	episodes, err := h.service.GetLatestWatchedTV(userID.(string), page, limit)
+	episodes, err := h.service.GetLatestWatchedTV(userID.(string), page, limit, c.Query("sort") == "rating")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

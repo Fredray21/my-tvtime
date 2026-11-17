@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/Fredray21/my-tvtime/database"
+	"github.com/Fredray21/my-tvtime/internal/backup"
 	"github.com/Fredray21/my-tvtime/internal/calendar"
 	"github.com/Fredray21/my-tvtime/internal/importservice"
 	"github.com/Fredray21/my-tvtime/internal/middleware"
@@ -79,6 +80,7 @@ func main() {
 	taskManager := importservice.NewTaskManager()
 	tvTimeImporter := importservice.NewTVTimeImporter(tmdbClient, taskManager)
 	importHandler := importservice.NewImportHandler(tvTimeImporter, taskManager, movieService, tvService)
+	backupHandler := backup.NewHandler(backup.NewService(db, tmdbClient))
 
 	r := gin.Default()
 
@@ -174,6 +176,10 @@ func main() {
 		api.POST("/import/tvtime/upload", importHandler.HandleUploadTVTime)
 		api.GET("/import/tvtime/status/:taskID", importHandler.HandleGetStatus)
 		api.POST("/import/tvtime/confirm", importHandler.HandleConfirmImport)
+
+		// Sauvegarde : export / import au format My TvTime
+		api.GET("/user/export", backupHandler.HandleExport)
+		api.POST("/import/backup", backupHandler.HandleImport)
 	}
 
 	// Start Server

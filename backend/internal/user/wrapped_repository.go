@@ -1,11 +1,15 @@
 package user
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 type WrappedMovieRecord struct {
 	TMDBMovieID  int
 	IsFavorite   bool
 	RewatchCount int
+	UserRating   *int
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -50,7 +54,7 @@ func (r *Repository) GetWrappedYears(userID string) ([]int, error) {
 // GetWrappedMovies : films vus pour la 1ère fois OU revus sur la période
 func (r *Repository) GetWrappedMovies(userID string, start, end time.Time) ([]WrappedMovieRecord, error) {
 	query := `
-		SELECT tmdb_movie_id, is_favorite, rewatch_count, created_at, updated_at
+		SELECT tmdb_movie_id, is_favorite, rewatch_count, user_rating, created_at, updated_at
 		FROM user_movies
 		WHERE user_id = $1 AND status = 'watched'
 		  AND ((created_at >= $2 AND created_at < $3)
@@ -66,8 +70,13 @@ func (r *Repository) GetWrappedMovies(userID string, start, end time.Time) ([]Wr
 	var records []WrappedMovieRecord
 	for rows.Next() {
 		var rec WrappedMovieRecord
-		if err := rows.Scan(&rec.TMDBMovieID, &rec.IsFavorite, &rec.RewatchCount, &rec.CreatedAt, &rec.UpdatedAt); err != nil {
+		var rating sql.NullInt64
+		if err := rows.Scan(&rec.TMDBMovieID, &rec.IsFavorite, &rec.RewatchCount, &rating, &rec.CreatedAt, &rec.UpdatedAt); err != nil {
 			return nil, err
+		}
+		if rating.Valid {
+			r := int(rating.Int64)
+			rec.UserRating = &r
 		}
 		records = append(records, rec)
 	}
@@ -116,4 +125,23 @@ func (r *Repository) CountNewSeries(userID string, start, end time.Time) (int, e
 	var count int
 	err := r.db.QueryRow(query, userID, start, end).Scan(&count)
 	return count, err
+}
+
+// GetSeriesRatings : notes perso des séries notées (tmdb_series_id -> note sur 10)
+func (r *Repository) GetSeriesRatings(userID string) (map[int]int, error) {
+	rows, err := r.db.Query(`SELECT tmdb_series_id, user_rating FROM user_series WHERE user_id = $1 AND user_rating IS NOT NULL`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ratings := make(map[int]int)
+	for rows.Next() {
+		var id, rating int
+		if err := rows.Scan(&id, &rating); err != nil {
+			return nil, err
+		}
+		ratings[id] = rating
+	}
+	return ratings, rows.Err()
 }

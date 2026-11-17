@@ -47,10 +47,10 @@ func (s *UserService) GetUserStats(userID string) (UserStatsResponse, error) {
 	return stats, nil
 }
 
-func (s *UserService) GetLatestWatchedMovies(userID string, page, limit int) ([]movie.MovieCustomResponse, error) {
+func (s *UserService) GetLatestWatchedMovies(userID string, page, limit int, byRating bool) ([]movie.MovieCustomResponse, error) {
 	offset := (page - 1) * limit
 
-	records, err := s.movieRepo.GetLatestWatchedMovies(userID, limit+1, offset)
+	records, err := s.movieRepo.GetLatestWatchedMovies(userID, limit+1, offset, byRating)
 	if err != nil {
 		return nil, err
 	}
@@ -63,10 +63,10 @@ func (s *UserService) GetLatestWatchedMovies(userID string, page, limit int) ([]
 	return s.movieService.EnrichMovieRecords(userID, movieRecords)
 }
 
-func (s *UserService) GetLatestWatchedTV(userID string, page, limit int) ([]tv.SeriesCustomResponse, error) {
+func (s *UserService) GetLatestWatchedTV(userID string, page, limit int, byRating bool) ([]tv.SeriesCustomResponse, error) {
 	offset := (page - 1) * limit
 
-	records, err := s.tvRepo.GetLatestWatchedEpisodes(userID, limit+1, offset)
+	records, err := s.tvRepo.GetLatestWatchedEpisodes(userID, limit+1, offset, byRating)
 	if err != nil {
 		return nil, err
 	}

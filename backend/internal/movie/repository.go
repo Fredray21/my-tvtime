@@ -3,6 +3,7 @@ package movie
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -209,24 +210,28 @@ func (r *Repository) GetUserStatusesForMovies(userID string, tmdbIDs []int) (map
 }
 
 // GetUserWatchedMovies récupère les IDs et le nombre de visionnages des films vus
-func (r *Repository) GetLatestWatchedMovies(userID string, limit, offset int) ([]MovieRecord, error) {
+// byRating : les mieux notés d'abord (non notés à la fin), sinon les plus récents
+func (r *Repository) GetLatestWatchedMovies(userID string, limit, offset int, byRating bool) ([]MovieRecord, error) {
+	orderBy := "updated_at DESC"
+	if byRating {
+		orderBy = "user_rating DESC NULLS LAST, updated_at DESC"
+	}
 	query := `
-        SELECT id, user_id, tmdb_movie_id, status, is_favorite, rewatch_count  
-        FROM user_movies 
-        WHERE user_id = $1 AND status = 'watched' 
-        ORDER BY updated_at DESC
-    `
+        SELECT id, user_id, tmdb_movie_id, status, is_favorite, rewatch_count
+        FROM user_movies
+        WHERE user_id = $1 AND status = 'watched'
+        ORDER BY ` + orderBy
 
 	args := []interface{}{userID}
 
 	if limit > 0 {
-		query += " LIMIT $2"
 		args = append(args, limit)
+		query += fmt.Sprintf(" LIMIT $%d", len(args))
 	}
 
 	if offset > 0 {
-		query += " OFFSET $3"
 		args = append(args, offset)
+		query += fmt.Sprintf(" OFFSET $%d", len(args))
 	}
 
 	rows, err := r.db.Query(query, args...)

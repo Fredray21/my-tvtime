@@ -4,6 +4,7 @@ import { Star, Heart, CheckCircle, Check, CalendarClock, Loader, Bookmark, Play 
 import { triggerVibration } from '../utils/haptics';
 import { providerLogoUrl, useMyPlatforms } from '../hooks/useMyPlatforms';
 import type { WatchProvider } from '../api/mediaApi';
+import { formatRating } from '../utils/rating';
 
 // Ce qu'une carte sait afficher : films / séries (watchlist, recherche, favoris...) et personnes (recherche)
 export interface MediaCardItem {
@@ -24,6 +25,8 @@ export interface MediaCardItem {
     next_episode_to_air?: { air_date?: string } | null;
     // Plateformes incluses en France (absent dans les listes TMDB)
     available_on?: WatchProvider[];
+    // Ma note sur 10 (null / absent si pas noté)
+    user_rating?: number | null;
 }
 
 interface MediaCardProps {
@@ -91,6 +94,13 @@ export const MediaCard: React.FC<MediaCardProps> = ({
             ))}
         </span>
     );
+
+    // Ma note, distincte de la note TMDB : pastille ambre pleine
+    const myRating = !isPerson && item.user_rating ? (
+        <span className="flex items-center gap-0.5 rounded px-1 py-px bg-amber-400/15 text-amber-300 font-bold" title={`Ta note : ${formatRating(item.user_rating)}/5`}>
+            <Star size={9} fill="currentColor" /> {formatRating(item.user_rating)}
+        </span>
+    ) : null;
 
     const nextSeason = item.next_season_number ?? 0;
     const nextEpisode = item.next_episode_number ?? 0;
@@ -202,9 +212,14 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                         </div>
                     </div>
 
-                    {!isPerson && !!item.vote_average && item.vote_average > 0 && (
-                        <div className="text-amber-400 text-sm font-bold flex items-center gap-1 mt-1">
-                            <Star fill="currentColor" size={12} /> {item.vote_average.toFixed(1)}
+                    {!isPerson && (myRating || (!!item.vote_average && item.vote_average > 0)) && (
+                        <div className="flex items-center gap-2 mt-1 text-xs">
+                            {myRating}
+                            {!!item.vote_average && item.vote_average > 0 && (
+                                <span className="text-amber-400 text-sm font-bold flex items-center gap-1">
+                                    <Star fill="currentColor" size={12} /> {item.vote_average.toFixed(1)}
+                                </span>
+                            )}
                         </div>
                     )}
                 </div>
@@ -352,15 +367,16 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
             <div className={`min-w-0 px-0.5 ${isPerson ? 'text-center' : ''}`}>
                 <h3 className="text-[12px] font-semibold leading-tight text-zinc-200 line-clamp-1 group-hover:text-white transition-colors">{title}</h3>
-                {!isPerson && (year || rating) && (
+                {!isPerson && (year || rating || myRating) && (
                     <p className="mt-0.5 flex items-center gap-1.5 text-[10px] font-medium text-zinc-500 tabular-nums">
                         {year && <span>{year}</span>}
-                        {year && rating && <span className="w-0.5 h-0.5 rounded-full bg-zinc-600" />}
-                        {rating && (
+                        {year && (rating || myRating) && <span className="w-0.5 h-0.5 rounded-full bg-zinc-600" />}
+                        {/* Ma note prend la place de la note TMDB sur les cartes étroites */}
+                        {myRating ?? (rating && (
                             <span className="flex items-center gap-0.5 text-zinc-400">
                                 <Star size={9} fill="currentColor" className="text-amber-400" /> {rating}
                             </span>
-                        )}
+                        ))}
                     </p>
                 )}
             </div>

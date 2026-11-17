@@ -2,6 +2,7 @@ import React, { useCallback, useRef } from 'react';
 import { useInfiniteQuery, type QueryKey } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, List, Grid, ChevronDown } from 'lucide-react';
+import type { LatestSort } from '../api/userApi';
 import { useLocalStorage } from '../utils/useLocalStorage';
 import { triggerVibration } from '../utils/haptics';
 import { MediaCard, type MediaCardItem } from './MediaCard';
@@ -15,12 +16,14 @@ interface MediaGridPageProps {
     icon: React.ElementType;
     mediaType: 'movie' | 'tv';
     queryKey: QueryKey;
-    // Le queryFn doit accepter pageParam pour l'infinite scroll
-    queryFn: ({ pageParam }: { pageParam: number }) => Promise<MediaGridPageResult>;
+    // Le queryFn doit accepter pageParam pour l'infinite scroll (et le tri si la page est triable)
+    queryFn: ({ pageParam, sort }: { pageParam: number; sort: LatestSort }) => Promise<MediaGridPageResult>;
     emptyTitle: string;
     emptyDescription: string;
     // Pastille "Vu / Dans ta liste" sur les cartes (listes de découverte)
     showStatusBadge?: boolean;
+    // Choix du tri "Récents / Ma note" (historique)
+    sortable?: boolean;
 }
 
 export const MediaGridPage: React.FC<MediaGridPageProps> = ({ 
@@ -31,11 +34,14 @@ export const MediaGridPage: React.FC<MediaGridPageProps> = ({
     queryFn,
     emptyTitle,
     emptyDescription,
-    showStatusBadge = false
+    showStatusBadge = false,
+    sortable = false
 }) => {
     const navigate = useNavigate();
     // Reprise exacte de ton système de vue (card/list)
     const [viewMode, setViewMode] = useLocalStorage<'card' | 'list'>('media_grid_view_mode', 'card');
+    const [savedSort, setSort] = useLocalStorage<LatestSort>(`media_grid_sort_${mediaType}`, 'recent');
+    const sort: LatestSort = sortable ? savedSort : 'recent';
 
     // Utilisation de useInfiniteQuery comme dans WatchedView
     const { 
@@ -46,8 +52,8 @@ export const MediaGridPage: React.FC<MediaGridPageProps> = ({
         hasNextPage, 
         isFetchingNextPage 
     } = useInfiniteQuery({
-        queryKey,
-        queryFn,
+        queryKey: sortable ? [...queryKey, sort] : queryKey,
+        queryFn: ({ pageParam }) => queryFn({ pageParam, sort }),
         initialPageParam: 1,
         getNextPageParam: (lastPage) => {
             // Sécurité : si l'API renvoie un simple tableau (ex: Favoris), il n'y a pas de page suivante.
@@ -111,6 +117,22 @@ export const MediaGridPage: React.FC<MediaGridPageProps> = ({
                         {viewMode === 'card' ? <List size={20} /> : <Grid size={20} />}
                     </button>
                 </div>
+
+                {sortable && (
+                    <div className="flex bg-zinc-900 rounded-xl p-1 mb-6 max-w-xs" role="tablist" aria-label="Trier">
+                        {([['recent', 'Récents'], ['rating', 'Ma note']] as const).map(([value, label]) => (
+                            <button
+                                key={value}
+                                role="tab"
+                                aria-selected={sort === value}
+                                onClick={() => { triggerVibration(10); setSort(value); }}
+                                className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-all ${sort === value ? 'bg-purple-500 text-black shadow-md' : 'text-zinc-400 hover:text-zinc-300'}`}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {/* ÉTAT DE CHARGEMENT INITIAL */}
                 {isLoading && (

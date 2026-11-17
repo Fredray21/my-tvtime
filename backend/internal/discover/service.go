@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Fredray21/my-tvtime/internal/movie"
 	"github.com/Fredray21/my-tvtime/internal/providers"
@@ -129,6 +130,15 @@ func (s *Service) GetList(userID, mediaType, list string, page int) (interface{}
 				data.Results = enriched
 			}
 		}
+		if list == MyPlatformsList {
+			ids := make([]int, len(data.Results))
+			for i := range data.Results {
+				ids[i] = data.Results[i].ID
+			}
+			for i, available := range s.availability("movie", ids) {
+				data.Results[i].AvailableOn = available
+			}
+		}
 		return newPaged(data.Results, data.Page, data.TotalPages), nil
 	}
 
@@ -148,7 +158,47 @@ func (s *Service) GetList(userID, mediaType, list string, page int) (interface{}
 			data.Results = enriched
 		}
 	}
+	if list == MyPlatformsList {
+		ids := make([]int, len(data.Results))
+		for i := range data.Results {
+			ids[i] = data.Results[i].ID
+		}
+		for i, available := range s.availability("tv", ids) {
+			data.Results[i].AvailableOn = available
+		}
+	}
 	return newPaged(data.Results, data.Page, data.TotalPages), nil
+}
+
+// availability récupère les plateformes (France) de chaque titre : les listes TMDB ne les incluent pas,
+// or la liste "Sur tes plateformes" doit afficher sur quelle plateforme regarder.
+// Appels en parallèle (bornés), mis en cache 24h par le client TMDB. nil = inconnu (erreur).
+func (s *Service) availability(mediaType string, ids []int) []*providers.Streaming {
+	out := make([]*providers.Streaming, len(ids))
+	sem := make(chan struct{}, 8)
+	var wg sync.WaitGroup
+	for i, id := range ids {
+		wg.Add(1)
+		go func(i, id int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			body, err := s.tmdbClient.GetWatchProviders(mediaType, id)
+			if err != nil {
+				return
+			}
+			var available providers.Streaming
+			if err := json.Unmarshal(body, &available); err != nil {
+				return
+			}
+			if available == nil {
+				available = providers.Streaming{}
+			}
+			out[i] = &available
+		}(i, id)
+	}
+	wg.Wait()
+	return out
 }
 
 func newPaged[T any](results []T, page, totalPages int) PagedResponse[T] {

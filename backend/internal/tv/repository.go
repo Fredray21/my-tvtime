@@ -347,17 +347,23 @@ func (r *Repository) GetWatchedCountBySeason(userID string, seriesID int) (map[i
 }
 
 // Récupère les épisodes les plus récents vus (pour le "Latest")
-func (r *Repository) GetLatestWatchedEpisodes(userID string, limit, offset int) ([]EpisodeRecord, error) {
+// byRating : séries les mieux notées d'abord (non notées à la fin), sinon les plus récentes
+func (r *Repository) GetLatestWatchedEpisodes(userID string, limit, offset int, byRating bool) ([]EpisodeRecord, error) {
+	orderBy := "latest_episodes.last_watched_at DESC"
+	if byRating {
+		orderBy = "us.user_rating DESC NULLS LAST, latest_episodes.last_watched_at DESC"
+	}
 	query := `
-        SELECT tmdb_series_id, season_number, episode_number, rewatch_count 
+        SELECT latest_episodes.tmdb_series_id, season_number, episode_number, rewatch_count
         FROM (
-            SELECT DISTINCT ON (tmdb_series_id) 
+            SELECT DISTINCT ON (tmdb_series_id)
                 tmdb_series_id, season_number, episode_number, rewatch_count, last_watched_at
-            FROM user_episodes 
-            WHERE user_id = $1 
+            FROM user_episodes
+            WHERE user_id = $1
             ORDER BY tmdb_series_id, last_watched_at DESC
         ) AS latest_episodes
-        ORDER BY last_watched_at DESC
+        LEFT JOIN user_series us ON us.user_id = $1 AND us.tmdb_series_id = latest_episodes.tmdb_series_id
+        ORDER BY ` + orderBy + `
         LIMIT $2 OFFSET $3`
 
 	rows, err := r.db.Query(query, userID, limit, offset)

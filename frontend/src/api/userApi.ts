@@ -24,6 +24,7 @@ export interface WrappedTitle {
     is_favorite: boolean;
     rewatch_count?: number;
     watched_at?: string;
+    user_rating?: number; // note perso sur 10
 }
 
 export interface WrappedSeries extends WrappedTitle {
@@ -62,7 +63,20 @@ export interface WrappedResponse {
     biggest_binge: { date: string; episodes: number; series: WrappedTitle } | null;
     longest_streak: number;
     backfill_days: number;
+    top_rated: WrappedTitle[];
+    average_rating: number; // sur 10, 0 si rien n'est noté
+    rated_count: number;
 }
+
+// --- SAUVEGARDE (export / import My TvTime) ---
+export interface BackupImportResult {
+    movies: number;
+    series: number;
+    episodes: number;
+    platforms: number;
+}
+
+export type LatestSort = 'recent' | 'rating';
 
 // --- NOTIFICATIONS PUSH ---
 export interface PushConfig {
@@ -99,9 +113,24 @@ export const createUserApi = (api: AxiosInstance) => ({
         return response.data;
     },
 
-    getLatestMedias: async (mediaType: 'movie' | 'tv', page: number): Promise<{ results: MediaCustomResponse[], page: number, has_next_page: boolean }> => {
+    getLatestMedias: async (mediaType: 'movie' | 'tv', page: number, sort: LatestSort = 'recent'): Promise<{ results: MediaCustomResponse[], page: number, has_next_page: boolean }> => {
         const { data } = await api.get(`/user/${mediaType}s/latest`, {
-            params: { page, limit: 20 }
+            params: { page, limit: 20, ...(sort === 'rating' ? { sort } : {}) }
+        });
+        return data;
+    },
+
+    // Fichier de sauvegarde complet (films, séries, épisodes, notes, plateformes)
+    exportBackup: async (): Promise<Blob> => {
+        const { data } = await api.get('/user/export', { responseType: 'blob' });
+        return data;
+    },
+
+    importBackup: async (file: File): Promise<BackupImportResult> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const { data } = await api.post<BackupImportResult>('/import/backup', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
         });
         return data;
     },

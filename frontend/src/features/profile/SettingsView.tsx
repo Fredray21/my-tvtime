@@ -6,6 +6,7 @@ import { triggerVibration } from '../../utils/haptics';
 import { TVTimeImport } from '../../components/TVTimeImport';
 import { NotificationSettings } from '../../components/NotificationSettings';
 import { MyPlatformsSettings } from '../../components/MyPlatformsSettings';
+import { BackupSettings } from '../../components/BackupSettings';
 
 // Réglages rarement utilisés, sortis du profil pour l'alléger
 export const SettingsView = () => {
@@ -54,6 +55,9 @@ export const SettingsView = () => {
                         <ChevronRight size={18} className="text-zinc-600" />
                     </button>
                 </div>
+
+                {/* SAUVEGARDE (export / import) */}
+                <BackupSettings />
 
                 {/* MES PLATEFORMES (abonnements streaming) */}
                 <MyPlatformsSettings />

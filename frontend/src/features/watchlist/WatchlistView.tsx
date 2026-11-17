@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useApi } from '../../context/ApiContext';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MediaCard } from '../../components/MediaCard';
 import type { MediaCustomResponse, UpdateStatusDTO, WatchlistPaginatedResponse } from '../../api/mediaApi';
 import { EPISODE_MUTATION_KEY, MEDIA_MUTATION_KEY, type EpisodeMutationVars, type MediaMutationVars } from '../../offline/mutations';
@@ -8,7 +8,8 @@ import { OfflineNotice } from '../../offline/OfflineNotice';
 import { UpcomingCalendar } from '../../components/UpcomingCalendar';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 import { triggerVibration } from '../../utils/haptics';
-import { Grid, List, Tv, Hourglass, PlayCircle, CheckCircle, Popcorn, Dices } from 'lucide-react';
+import { Grid, List, Tv, Hourglass, PlayCircle, CheckCircle, Popcorn, Dices, MonitorPlay } from 'lucide-react';
+import { useMyPlatforms } from '../../hooks/useMyPlatforms';
 import { WatchlistPicker } from './WatchlistPicker';
 import { offlineHint, showToast } from '../../utils/toast';
 
@@ -29,6 +30,13 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         'card'
     );
     const [isPickerOpen, setIsPickerOpen] = useState(false);
+    // Filtre "Sur mes plateformes" (uniquement si l'utilisateur a choisi ses abonnements)
+    const [onlyMyPlatforms, setOnlyMyPlatforms] = useLocalStorage(
+        mediaType === 'tv' ? 'watchlist_my_platforms_tv' : 'watchlist_my_platforms_movie',
+        false
+    );
+    const { hasPlatforms, myProvidersFor } = useMyPlatforms();
+    const platformFilter = onlyMyPlatforms && hasPlatforms;
 
     const {
         data,
@@ -46,6 +54,11 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
         initialPageParam: 1,
         getNextPageParam: (lastPage) => lastPage.has_next_page ? lastPage.page + 1 : undefined,
     });
+
+    // Avec le filtre, on charge toute la liste : sinon un titre dispo pourrait rester sur une page non chargée
+    useEffect(() => {
+        if (platformFilter && activeTab === 'to_watch' && hasNextPage && !isFetchingNextPage) fetchNextPage();
+    }, [platformFilter, activeTab, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     const observer = useRef<IntersectionObserver | null>(null);
     const bottomBoundaryRef = useCallback(
@@ -130,6 +143,11 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
             if (!item.release_date) return true;
             return new Date(item.release_date).getTime() <= new Date().getTime();
         });
+    }
+
+    const totalBeforeFilter = displayData.length;
+    if (platformFilter) {
+        displayData = displayData.filter(item => myProvidersFor(item.available_on).length > 0);
     }
 
     if (isLoading && fetchStatus === 'paused') return <OfflineNotice what="Cette liste" />;
@@ -223,6 +241,22 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                         <button onClick={() => { triggerVibration(10); setActiveTab('to_watch'); }} className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${activeTab === 'to_watch' ? 'bg-purple-500 text-black shadow-md' : 'text-zinc-400 hover:text-zinc-300'}`}>À voir</button>
                         <button onClick={() => { triggerVibration(10); setActiveTab('upcoming'); }} className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${activeTab === 'upcoming' ? 'bg-purple-500 text-black shadow-md' : 'text-zinc-400 hover:text-zinc-300'}`}>À venir</button>
                     </div>
+
+                    {activeTab === 'to_watch' && hasPlatforms && (
+                        <div className="mb-4 -mt-1">
+                            <button
+                                onClick={() => { triggerVibration(10); setOnlyMyPlatforms(prev => !prev); }}
+                                aria-pressed={platformFilter}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${platformFilter
+                                    ? 'bg-purple-500/15 border-purple-500/50 text-purple-200'
+                                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+                            >
+                                <MonitorPlay size={14} />
+                                Sur mes plateformes
+                                {platformFilter && !hasNextPage && <span className="tabular-nums text-purple-300/80">· {displayData.length}</span>}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -232,7 +266,18 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ mediaType }) => {
                 ) : displayData.length === 0 ? (
                     <div className="flex flex-col items-center justify-center mt-10 p-6 bg-zinc-900/50 rounded-2xl border border-zinc-800/50 max-w-md mx-auto">
                         <Popcorn className="w-12 h-12 text-zinc-700 mb-4" />
-                        <h2 className="text-lg font-bold mb-2">Ta liste est vide</h2>
+                        {platformFilter && totalBeforeFilter > 0 ? (
+                            hasNextPage ? (
+                                <h2 className="text-sm font-semibold text-zinc-400 animate-pulse">Recherche sur tes plateformes...</h2>
+                            ) : (
+                                <>
+                                    <h2 className="text-lg font-bold mb-2">Rien sur tes plateformes</h2>
+                                    <p className="text-sm text-zinc-500 text-center">Aucun titre de ta liste n'est inclus dans tes abonnements en ce moment.</p>
+                                </>
+                            )
+                        ) : (
+                            <h2 className="text-lg font-bold mb-2">Ta liste est vide</h2>
+                        )}
                     </div>
                 ) : (
                     <div className="flex flex-col gap-8">

@@ -96,6 +96,12 @@ export interface MediaCustomResponse extends TMDBMediaResult {
     next_season_number?: number;
     next_episode_number?: number;
 
+    // Note perso de 1 à 10 (affichée en demi-étoiles sur 5), null si pas notée
+    user_rating?: number | null;
+    // Plateformes incluses (abonnement, gratuit, avec pub) en France.
+    // Absent quand le serveur ne le sait pas (listes TMDB), [] si aucune.
+    available_on?: WatchProvider[];
+
 
 }
 
@@ -243,6 +249,11 @@ export interface WatchProvidersResponse {
     buy?: WatchProvider[] | null;
 }
 
+// Plateforme proposée dans "Mes plateformes" (variantes avec pub regroupées dans alias_ids)
+export interface CatalogProvider extends WatchProvider {
+    alias_ids: number[];
+}
+
 export interface PersonCredit extends MediaCustomResponse {
     character?: string;
     job?: string;
@@ -375,6 +386,27 @@ export const createMediaApi = (api: AxiosInstance) => ({
     getWatchProviders: async (id: number, mediaType: 'movie' | 'tv'): Promise<WatchProvidersResponse> => {
         const response = await api.get<WatchProvidersResponse>(`/${mediaType}s/${id}/providers`);
         return response.data;
+    },
+
+    // Note perso (1 à 10), null pour l'effacer
+    setRating: async (id: number, mediaType: 'movie' | 'tv', rating: number | null) => {
+        return api.put(`/${mediaType}s/${id}/rating`, { rating });
+    },
+
+    // --- MES PLATEFORMES ---
+    getProviderCatalog: async (): Promise<CatalogProvider[]> => {
+        const response = await api.get<CatalogProvider[]>('/providers/catalog');
+        return response.data;
+    },
+
+    getMyProviders: async (): Promise<number[]> => {
+        const response = await api.get<{ provider_ids: number[] }>('/user/providers');
+        return response.data.provider_ids;
+    },
+
+    setMyProviders: async (providerIds: number[]): Promise<number[]> => {
+        const response = await api.put<{ provider_ids: number[] }>('/user/providers', { provider_ids: providerIds });
+        return response.data.provider_ids;
     },
 
     getPersonDetails: async (id: number): Promise<PersonDetailsResponse> => {

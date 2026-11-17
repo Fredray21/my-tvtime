@@ -9,6 +9,8 @@ import { OfflineNotice } from '../../offline/OfflineNotice';
 import { MediaTrailers } from '../../components/MediaTrailers';
 import { WatchProviders } from '../../components/WatchProviders';
 import { SagaProgress } from '../../components/SagaProgress';
+import { PersonalRating } from '../../components/RatingStars';
+import { offlineHint, showToast } from '../../utils/toast';
 import { useConfirm } from '../../hooks/useConfirm';
 import { CheckCircle, Clock, Eye, Heart, Minus, Plus, Star } from 'lucide-react';
 
@@ -51,6 +53,11 @@ export const MovieDetailsView = () => {
             if (vars.kind === 'notifications') return {}; // réglage propre aux séries
             await queryClient.cancelQueries({ queryKey: movieKey });
             const previousMovie = queryClient.getQueryData<MediaCustomResponse>(movieKey);
+
+            if (vars.kind === 'rating') {
+                queryClient.setQueryData<MediaCustomResponse>(movieKey, old => old && { ...old, user_rating: vars.rating });
+                return { previousMovie };
+            }
 
             queryClient.setQueryData<MediaCustomResponse>(movieKey, (old) => {
                 if (!old) return old;
@@ -275,7 +282,14 @@ export const MovieDetailsView = () => {
                             <button
                                 onClick={() => {
                                     triggerVibration([20, 80, 50]);
-                                    changeStatus({ newStatus: 'watched', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count })
+                                    const previous = { newStatus: movie.status_local, isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count };
+                                    changeStatus({ newStatus: 'watched', isFavorite: movie.is_favorite, rewatch_count: movie.rewatch_count });
+                                    showToast({
+                                        title: 'Vu !',
+                                        subtitle: offlineHint() ?? movie.title,
+                                        posterPath: movie.poster_path,
+                                        action: { label: 'Annuler', onClick: () => changeStatus(previous) },
+                                    });
                                 }}
                                 className="flex-1 py-3 rounded-xl font-bold text-sm bg-zinc-800 text-white hover:bg-zinc-700 transition-all flex items-center justify-center gap-2"
                             >
@@ -284,6 +298,14 @@ export const MovieDetailsView = () => {
                         </>
                     )}
                 </div>
+
+                {/* Note perso (une fois le film vu) */}
+                {movie.status_local === 'watched' && (
+                    <PersonalRating
+                        value={movie.user_rating}
+                        onChange={rating => mediaMutation.mutate({ kind: 'rating', tmdbId: movieId, mediaType, rating })}
+                    />
+                )}
 
                 {/* Où regarder */}
                 <WatchProviders id={movieId} mediaType={mediaType} />

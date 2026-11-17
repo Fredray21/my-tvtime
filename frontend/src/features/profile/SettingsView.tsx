@@ -5,6 +5,7 @@ import { ChevronRight, FileUp, LogOut, UserPen } from 'lucide-react';
 import { triggerVibration } from '../../utils/haptics';
 import { TVTimeImport } from '../../components/TVTimeImport';
 import { NotificationSettings } from '../../components/NotificationSettings';
+import { MyPlatformsSettings } from '../../components/MyPlatformsSettings';
 
 // Réglages rarement utilisés, sortis du profil pour l'alléger
 export const SettingsView = () => {
@@ -53,6 +54,9 @@ export const SettingsView = () => {
                         <ChevronRight size={18} className="text-zinc-600" />
                     </button>
                 </div>
+
+                {/* MES PLATEFORMES (abonnements streaming) */}
+                <MyPlatformsSettings />
 
                 {/* NOTIFICATIONS (masqué si le serveur n'a pas les clés VAPID) */}
                 <NotificationSettings />

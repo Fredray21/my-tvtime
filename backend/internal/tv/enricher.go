@@ -30,6 +30,7 @@ func (s *TVService) EnrichSeriesRecords(userID string, records []SeriesIdentifie
 				NextSeasonNumber:  nextSeason,
 				NextEpisodeNumber: nextEpisode,
 			}
+			enrichedResults[index].exposeAvailability()
 		}(i, record)
 	}
 
@@ -63,9 +64,11 @@ func (s *TVService) EnrichWithUserStatus(userID string, series []SeriesCustomRes
 		if exists {
 			series[i].StatusLocal = status.Status
 			series[i].IsFavorite = status.IsFavorite
+			series[i].UserRating = status.UserRating
 		} else {
 			series[i].StatusLocal = "not_tracked"
 			series[i].IsFavorite = false
+			series[i].UserRating = nil
 		}
 	}
 

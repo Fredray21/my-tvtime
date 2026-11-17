@@ -42,14 +42,15 @@ func (r *Repository) SaveMovieStatus(userID string, tmdbMovieID int, status stri
 // 2. READ : Récupère le statut d'un film spécifique pour un utilisateur donné
 func (r *Repository) GetMovieStatus(userID string, tmdbMovieID int) (*MovieRecord, error) {
 	query := `
-		SELECT id, user_id, tmdb_movie_id, status, is_favorite, rewatch_count, created_at, updated_at 
-		FROM user_movies 
+		SELECT id, user_id, tmdb_movie_id, status, is_favorite, rewatch_count, user_rating, created_at, updated_at
+		FROM user_movies
 		WHERE user_id = $1 AND tmdb_movie_id = $2
 	`
 	var movie MovieRecord
+	var rating sql.NullInt64
 	err := r.db.QueryRow(query, userID, tmdbMovieID).Scan(
 		&movie.ID, &movie.UserID, &movie.TMDBMovieID,
-		&movie.Status, &movie.IsFavorite, &movie.RewatchCount, &movie.CreatedAt, &movie.UpdatedAt,
+		&movie.Status, &movie.IsFavorite, &movie.RewatchCount, &rating, &movie.CreatedAt, &movie.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -59,8 +60,32 @@ func (r *Repository) GetMovieStatus(userID string, tmdbMovieID int) (*MovieRecor
 	if err != nil {
 		return nil, err
 	}
+	movie.UserRating = nullIntPtr(rating)
 
 	return &movie, nil
+}
+
+// ErrNotTracked : le film n'est pas (ou plus) dans la liste de l'utilisateur
+var ErrNotTracked = errors.New("film absent de ta liste")
+
+// SetMovieRating : note perso (nil pour l'effacer). Le film doit être dans la liste de l'utilisateur.
+func (r *Repository) SetMovieRating(userID string, tmdbMovieID int, rating *int) error {
+	result, err := r.db.Exec(`UPDATE user_movies SET user_rating = $3 WHERE user_id = $1 AND tmdb_movie_id = $2`, userID, tmdbMovieID, rating)
+	if err != nil {
+		return err
+	}
+	if n, err := result.RowsAffected(); err == nil && n == 0 {
+		return ErrNotTracked
+	}
+	return nil
+}
+
+func nullIntPtr(v sql.NullInt64) *int {
+	if !v.Valid {
+		return nil
+	}
+	n := int(v.Int64)
+	return &n
 }
 
 // GetMoviesByStatusRecords récupère tous les films ayant un statut spécifique ('watchlist' ou 'watched')
@@ -143,6 +168,7 @@ func (r *Repository) DeleteMovie(userID string, tmdbMovieID int) error {
 type MovieStatus struct {
 	Status     string
 	IsFavorite bool
+	UserRating *int
 }
 
 func (r *Repository) GetUserStatusesForMovies(userID string, tmdbIDs []int) (map[int]MovieStatus, error) {
@@ -152,8 +178,8 @@ func (r *Repository) GetUserStatusesForMovies(userID string, tmdbIDs []int) (map
 
 	// Utilisation de ANY($1) pour passer une slice d'entiers directement à Postgres
 	query := `
-        SELECT tmdb_movie_id, status, is_favorite 
-        FROM user_movies 
+        SELECT tmdb_movie_id, status, is_favorite, user_rating
+        FROM user_movies
         WHERE user_id = $1 AND tmdb_movie_id = ANY($2)
     `
 
@@ -170,10 +196,12 @@ func (r *Repository) GetUserStatusesForMovies(userID string, tmdbIDs []int) (map
 	for rows.Next() {
 		var tmdbID int
 		var ms MovieStatus
-		err := rows.Scan(&tmdbID, &ms.Status, &ms.IsFavorite)
+		var rating sql.NullInt64
+		err := rows.Scan(&tmdbID, &ms.Status, &ms.IsFavorite, &rating)
 		if err != nil {
 			return nil, err
 		}
+		ms.UserRating = nullIntPtr(rating)
 		results[tmdbID] = ms
 	}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Fredray21/my-tvtime/internal/providers"
 	"github.com/Fredray21/my-tvtime/internal/tmdb"
 )
 
@@ -53,6 +54,10 @@ type TMDBMovieResult struct {
 
 	// Saga (collection TMDB) à laquelle appartient le film, ex: "Harry Potter - La Collection"
 	BelongsToCollection *TMDBCollectionShort `json:"belongs_to_collection,omitempty"`
+
+	// Plateformes incluses en France (bloc "watch/providers" des détails TMDB, réduit à la France).
+	// Exposé au front sous "available_on" (voir exposeAvailability).
+	WatchProviders providers.Streaming `json:"watch/providers,omitempty"`
 }
 
 type TMDBCollectionShort struct {
@@ -75,9 +80,23 @@ type MovieCustomResponse struct {
 	IsFavorite   bool   `json:"is_favorite"`
 	RewatchCount int    `json:"rewatch_count"`
 	MediaType    string `json:"media_type"`
+	// Note perso de 1 à 10 (affichée en demi-étoiles sur 5), null si le film n'est pas noté
+	UserRating *int `json:"user_rating"`
+	// Plateformes incluses en France : absent quand on ne le sait pas (listes TMDB), [] si aucune
+	AvailableOn *providers.Streaming `json:"available_on,omitempty"`
 
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
+}
+
+// exposeAvailability déplace les plateformes décodées des détails TMDB vers "available_on"
+func (m *MovieCustomResponse) exposeAvailability() {
+	available := m.WatchProviders
+	if available == nil {
+		available = providers.Streaming{}
+	}
+	m.AvailableOn = &available
+	m.WatchProviders = nil
 }
 
 type MovieService struct {
@@ -128,6 +147,14 @@ func (s *MovieService) UpdateMovieStatus(userID string, tmdbMovieID int, status 
 	return s.repo.SaveMovieStatus(userID, tmdbMovieID, status, isFavorite, rewatchCount, finalUpdatedAt)
 }
 
+// SetMovieRating enregistre (ou efface avec nil) la note perso d'un film de la liste
+func (s *MovieService) SetMovieRating(userID string, tmdbMovieID int, rating *int) error {
+	if rating != nil && (*rating < 1 || *rating > 10) {
+		return fmt.Errorf("note invalide: %d (attendu entre 1 et 10)", *rating)
+	}
+	return s.repo.SetMovieRating(userID, tmdbMovieID, rating)
+}
+
 // 3. LOGIQUE MÉTIER : Supprime un film de la liste de l'utilisateur
 func (s *MovieService) RemoveMovie(userID string, tmdbMovieID int) error {
 	return s.repo.DeleteMovie(userID, tmdbMovieID)
@@ -175,6 +202,7 @@ func (s *MovieService) GetMovieDetailsForUser(userID string, movieID int) (*Movi
 		TMDBMovieResult: tmdbMovie,
 		MediaType:       "movie",
 	}
+	customMovie.exposeAvailability()
 
 	record, err := s.repo.GetMovieStatus(userID, movieID)
 	if err != nil {
@@ -187,6 +215,7 @@ func (s *MovieService) GetMovieDetailsForUser(userID string, movieID int) (*Movi
 		customMovie.StatusLocal = record.Status
 		customMovie.IsFavorite = record.IsFavorite
 		customMovie.RewatchCount = record.RewatchCount
+		customMovie.UserRating = record.UserRating
 
 		customMovie.CreatedAt = record.CreatedAt
 		customMovie.UpdatedAt = record.UpdatedAt

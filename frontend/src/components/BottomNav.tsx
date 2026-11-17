@@ -7,6 +7,8 @@ const PROFILE_SUB_PAGES = ['/settings', '/wrapped', '/sagas', '/saga/'];
 export const BottomNav = () => {
     const { pathname } = useLocation();
     const isProfileSection = PROFILE_SUB_PAGES.some(prefix => pathname.startsWith(prefix));
+    // Les pages "Tout voir" des tendances dépendent de l'onglet Découvrir
+    const isDiscoverSection = pathname.startsWith('/discover/');
 
     return (
         <nav className="fixed bottom-0 left-0 right-0 bg-zinc-950/90 backdrop-blur-md border-t border-zinc-900 pb-safe pt-2 px-6 z-50">
@@ -46,12 +48,12 @@ export const BottomNav = () => {
                     <span className="text-[10px] font-medium tracking-wide">Séries</span>
                 </NavLink>
 
-                {/* Lien Recherche */}
+                {/* Découvrir : recherche + tendances */}
                 <NavLink
                     onClick={() => triggerVibration(15)}
                     to="/search"
                     className={({ isActive }) =>
-                        `flex flex-col items-center gap-1 transition-colors ${isActive ? 'text-purple-500' : 'text-zinc-500 hover:text-zinc-400'
+                        `flex flex-col items-center gap-1 transition-colors ${isActive || isDiscoverSection ? 'text-purple-500' : 'text-zinc-500 hover:text-zinc-400'
                         }`
                     }
                 >
@@ -59,7 +61,7 @@ export const BottomNav = () => {
                         <circle cx="11" cy="11" r="8" />
                         <line x1="21" y1="21" x2="16.65" y2="16.65" />
                     </svg>
-                    <span className="text-[10px] font-medium tracking-wide">Rechercher</span>
+                    <span className="text-[10px] font-medium tracking-wide">Découvrir</span>
                 </NavLink>
 
                 {/* Profil */}

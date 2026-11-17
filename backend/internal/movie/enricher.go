@@ -36,6 +36,7 @@ func (s *MovieService) EnrichMovieRecords(userID string, records []MovieRecord) 
 				CreatedAt:       rec.CreatedAt,
 				UpdatedAt:       rec.UpdatedAt,
 			}
+			enrichedResults[index].exposeAvailability()
 		}(i, record)
 	}
 
@@ -72,9 +73,11 @@ func (s *MovieService) EnrichWithUserStatus(userID string, movies []MovieCustomR
 		if exists {
 			movies[i].StatusLocal = status.Status
 			movies[i].IsFavorite = status.IsFavorite
+			movies[i].UserRating = status.UserRating
 		} else {
 			movies[i].StatusLocal = "not_tracked"
 			movies[i].IsFavorite = false
+			movies[i].UserRating = nil
 		}
 	}
 
